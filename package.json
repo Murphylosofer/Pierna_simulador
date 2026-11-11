@@ -2,7 +2,7 @@
   "name": "pierna-simulador",
   "version": "0.1.0",
   "private": true,
-  "description": "Simulación de prótesis transfemoral con rodilla policéntrica de 4 barras (4IV11, CECyT 3, IPN)",
+  "description": "Simulación de prótesis transfemoral con rodilla policéntrica de 4 barras (5IV11, CECyT 3, IPN)",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,6 +14,7 @@
     "three": "^0.180.0"
   },
   "devDependencies": {
-    "vite": "^7.1.0"
+    "vite": "^7.1.0",
+    "vite-plugin-singlefile": "^2.3.4"
   }
 }

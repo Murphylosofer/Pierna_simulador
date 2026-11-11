@@ -1,6 +1,6 @@
 # Simulación de prótesis transfemoral – Rodilla policéntrica de 4 barras
 
-Proyecto del grupo 4IV11, CECyT No. 3 "Estanislao Ramírez Ruiz" (IPN), para el 14° Encuentro de Mejores Proyectos Aula 2026.
+Proyecto del grupo 5IV11, CECyT No. 3 "Estanislao Ramírez Ruiz" (IPN), para el 14° Encuentro de Mejores Proyectos Aula 2026.
 
 Las instrucciones completas están en `PROMPT.md`. Léelas antes de empezar.
 

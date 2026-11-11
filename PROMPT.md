@@ -10,7 +10,7 @@ Entrega todo como **un solo artifact HTML** (página web compartible por link), 
 ---
 
 ## Contexto del proyecto
-Somos el grupo 4IV11 del CECyT No. 3 "Estanislao Ramírez Ruiz" (IPN), especialidad Manufactura Asistida por Computadora. Proyecto: **"Diseño de una prótesis de pierna ligera, resistente, con rodilla de aluminio mediante el uso de IA para mejorar la movilidad del usuario"**. Objetivo: una prótesis **de bajo costo**, fabricable en talleres escolares con CNC, para personas con **amputación transfemoral** en México.
+Somos el grupo 5IV11 del CECyT No. 3 "Estanislao Ramírez Ruiz" (IPN), especialidad Manufactura Asistida por Computadora. Proyecto: **"Diseño de una prótesis de pierna ligera, resistente, con rodilla de aluminio mediante el uso de IA para mejorar la movilidad del usuario"**. Objetivo: una prótesis **de bajo costo**, fabricable en talleres escolares con CNC, para personas con **amputación transfemoral** en México.
 
 Datos de nuestro diseño (úsalos como base y como valores de referencia):
 - Rodilla **policéntrica de 4 barras** (no bisagra simple), con **centro instantáneo de rotación (CIR) variable**. El eje coincide con el eje anatómico, unos **2 cm posterior** a la línea media.
@@ -131,7 +131,7 @@ Agrega una pestaña **"Planos"** que genere los planos de cada pieza **a partir 
 - Un plano por pieza (las 12) y un **plano de ensamble** con **lista de materiales (BOM)** y globos numerados.
 - Vistas ortogonales (frontal, superior, lateral) en **proyección de tercer ángulo**, con vista isométrica de referencia y cortes donde haga falta (por ejemplo, en los barrenos de los pernos).
 - Acotación bajo **ASME Y14.5**: cotas, diámetros de barrenos, tolerancias (±0.2 mm general, ajustes de pernos indicados) y acabado superficial (Ra 3.2 µm).
-- **Cuadro de datos** con escuela, grupo 4IV11, nombre de la pieza, material elegido, escala, unidades (mm), fecha y "Revisó".
+- **Cuadro de datos** con escuela, grupo 5IV11, nombre de la pieza, material elegido, escala, unidades (mm), fecha y "Revisó".
 - Marca las cotas estimadas con un símbolo distinto hasta que yo te pase las reales.
 - **Exportar**: PDF para imprimir, SVG, **DXF** (que abra en SolidWorks/AutoCAD como base 2D) y **STL** de cada pieza para imprimir en 3D.
 - Aclara en la página que estos planos son de apoyo y que los planos oficiales para el CNC salen de SolidWorks. **No generes código G.**

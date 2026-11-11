@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite';
+import { viteSingleFile } from 'vite-plugin-singlefile';
 
-// base relativa: dist/ funciona en GitHub Pages bajo cualquier subruta, sin servidor propio.
+// Un solo index.html autocontenido: funciona en GitHub Pages, abierto como archivo y como artifact.
 export default defineConfig({
   base: './',
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1200 },
+  plugins: [viteSingleFile()],
+  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 3000 },
 });
