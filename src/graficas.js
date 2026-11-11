@@ -91,9 +91,18 @@ export function grafica(cont, opc) {
     }
   }
   let ultimo = null;
-  function cursor(x) { ultimo = x; if (cursorG) marcar(cursorG, x, true); }
+  function cursor(x) {
+    ultimo = x;
+    if (!cursorG) return;
+    if (!opc.parametrica) return marcar(cursorG, x, true);
+    // curva paramétrica: x es el índice de la muestra
+    cursorG.innerHTML = '';
+    const p = opc.series[0].puntos[Math.round(x)];
+    if (p && Number.isFinite(p[1])) el('circle', { cx: sx(p[0]), cy: sy(p[1]), r: 5, fill: opc.series[0].color, stroke: 'var(--superficie)', 'stroke-width': 2 }, cursorG);
+  }
 
   lienzo.addEventListener('pointermove', (ev) => {
+    if (opc.parametrica) return;
     const r = lienzo.getBoundingClientRect();
     const x = x0 + ((ev.clientX - r.left - m.i) / (ancho - m.i - m.d)) * (x1 - x0);
     if (x < x0 || x > x1) { hoverG.innerHTML = ''; globo.hidden = true; return; }
