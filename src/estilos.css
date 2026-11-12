@@ -38,7 +38,8 @@ body { background: var(--fondo); color: var(--tinta); font-family: var(--texto);
 h1, h2, h3, h4 { font-family: var(--display); font-weight: 600; line-height: 1.15; margin: 0; text-wrap: balance; }
 p { margin: 0; }
 button, input, select { font: inherit; color: inherit; }
-button { cursor: pointer; }
+button { cursor: pointer; transition: background-color 0.18s, border-color 0.18s, color 0.18s; }
+html { scroll-behavior: smooth; }
 :focus-visible { outline: 2px solid var(--guinda); outline-offset: 2px; }
 .num { font-variant-numeric: tabular-nums; }
 [hidden] { display: none !important; }
@@ -103,7 +104,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
 .controles summary::after { content: '+'; color: var(--tenue); font-size: 1.2rem; }
 .controles details[open] summary::after { content: '–'; }
 .controles .cuerpo { padding: 0 14px 14px; display: grid; gap: 12px; }
-.lista-esc { display: grid; gap: 6px; }
+.lista-esc { display: grid; gap: 8px; }
 .lista-esc button { text-align: left; border: 1px solid var(--linea); background: var(--superficie); border-radius: var(--radio); padding: 8px 12px; min-height: 44px; font-weight: 500; }
 .lista-esc button[aria-pressed='true'] { background: var(--guinda-suave); border-color: var(--guinda); color: var(--guinda); }
 .campo { display: grid; gap: 4px; }
@@ -125,7 +126,7 @@ input[type='number']:disabled { background: var(--hundido); color: var(--tenue);
 .visor canvas { display: block; width: 100%; height: 100%; }
 .visor.alerta-cuidado { border-color: var(--aviso); box-shadow: inset 0 0 0 2px var(--aviso); }
 .visor.alerta-peligro { border-color: var(--mal); box-shadow: inset 0 0 0 3px var(--mal); }
-.vistas { position: absolute; left: 8px; top: 8px; display: flex; flex-wrap: wrap; gap: 4px; max-width: calc(100% - 16px); }
+.vistas { position: absolute; left: 8px; top: 8px; display: flex; flex-wrap: wrap; gap: 8px; max-width: calc(100% - 16px); }
 .vistas button { border: 1px solid var(--linea); background: color-mix(in srgb, var(--superficie) 88%, transparent); border-radius: var(--radio); padding: 4px 10px; min-height: 36px; font-size: 0.86rem; font-weight: 500; }
 .vistas button:hover { border-color: var(--guinda); }
 .insignia { position: absolute; right: 8px; bottom: 8px; padding: 6px 12px; border-radius: 999px; font-weight: 600; font-size: 0.9rem; background: var(--superficie); border: 1px solid var(--linea); display: flex; align-items: center; gap: 8px; }
@@ -200,3 +201,6 @@ dialog dd { margin: 0; }
   .seccion-titulo { font-size: 1.3rem; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+#escala-mat { display: grid; gap: 4px; width: auto; }
+#escala-mat[hidden] { display: none; }

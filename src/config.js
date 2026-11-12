@@ -89,7 +89,7 @@ export const CONFIG = {
     D: [30, 0], // eje inferior delantero (base ↔ c1)
     // Tope de extensión: punto de contacto sobre el cuerpo superior y dirección de la fuerza que recibe.
     tope: { punto: [-40, 45], direccion: [1, 0] },
-    ejePilonX: 0, // eje del pilón y del receptáculo del socket; la alineación desplaza cadera y tobillo 20 mm al frente
+    ejePilonX: 14, // eje del pilón y del receptáculo del socket: adelantado para que el socket no choque con las c2 al flexionar
   },
 
   pernos: {
@@ -109,12 +109,13 @@ export const CONFIG = {
     barraLateral: { ancho: 18, espesor: 6 }, // c1 y c2 (perfil tipo estadio entre ejes)
     separacionC1: 20, // |z| de la cara interior de las barras c1
     separacionC2: 10, // |z| de la cara interior de las barras c2
-    adaptador: { xMin: -40, xMax: 26, yBase: 76, espesorPlaca: 8, anchoZ: 44, anilloDext: 48, anilloDint: 38, anilloAlto: 16 },
+    adaptador: { xMin: -38, xCorte: -12, xMax: 36, yBase: 76, espesorPlaca: 8, anchoZ: 39, anchoLengua: 19, // la lengua trasera es angosta para que las c2 pasen a los lados
+       anilloDext: 48, anilloDint: 38, anilloAlto: 16 },
     barraSupDelantera: { medioAnchoX: 9, yInferior: 51 },
     barraSupTrasera: { medioAnchoX: 9, yInferior: 47 },
-    barraTrasera: { largo: 12, alto: 12 }, // travesaño entre las dos c2, a media barra
+    barraTrasera: { largo: 12, alto: 8, posicion: 0.25, desfase: -13 }, // travesaño entre las dos c2; posicion = fracción de la barra desde el eje C, desfase = mm respecto a la línea de ejes (negativo = hacia el frente)
     barraInfDelantera: { medioAnchoX: 9, ySuperior: 11 },
-    barraInfTrasera: { medioAnchoX: 9, ySuperior: 19 },
+    barraInfTrasera: { medioAnchoX: 9, ySuperior: 19, zInterior: 16.5, zExterior: 22 }, // horquilla: dos orejas por fuera de las c2
     base: { xMin: -40, xMax: 42, yTope: -14, espesorPlaca: 8, anchoZ: 44 },
     tuboReceptor: { dext: 38, dint: 30, largo: 35 },
   },
@@ -160,18 +161,27 @@ export const CONFIG = {
       nota:
         'Casi el doble de resistencia que el 6061, pero más caro, más difícil de conseguir en medidas pequeñas y más sensible a la corrosión bajo tensión.',
     },
+    // Supuesto hasta que el equipo confirme: PLA, el plástico estándar de prototipos FDM.
+    // Propiedades EFECTIVAS de pieza impresa (paredes + relleno), no del filamento macizo.
     'prototipo-3d': {
-      nombre: 'Plástico del prototipo impreso en 3D',
-      corto: 'Prototipo 3D',
-      pendiente: true, // el equipo dará tipo de plástico, % de relleno y escala
-      tipo: null,
-      rellenoPct: null,
-      escala: null,
-      densidadKgM3: null,
-      fluenciaMPa: null,
-      ultimaMPa: null,
-      fatigaMPa: null,
-      nota: 'Pendiente: falta que el equipo indique el tipo de plástico, el porcentaje de relleno y la escala del prototipo.',
+      nombre: 'PLA impreso en 3D (prototipo)',
+      corto: 'PLA impreso',
+      estimado: true,
+      tipo: 'PLA',
+      rellenoPct: 20,
+      escala: 1, // 1 = tamaño real; el equipo indicó "a escala" sin dar el factor
+      densidadMacizaKgM3: 1240,
+      fraccionSolida: 0.45, // paredes de 1.2 mm + 20 % de relleno ≈ 45 % del volumen
+      densidadKgM3: 558, // 1240 × 0.45
+      fluenciaMPa: 22, // ~50 MPa del PLA macizo × fracción sólida
+      ultimaMPa: 26,
+      fluenciaTipicaMPa: 50,
+      ultimaTipicaMPa: 60,
+      fatigaMPa: 6,
+      moduloGPa: 1.5,
+      costoRelativo: 0.15,
+      maquinabilidad: 'No se maquina: se imprime por capas (FDM)',
+      nota: 'Sirve para validar ensambles y rango de movimiento, no para cargar peso. Supuesto: PLA con 20 % de relleno a escala 1:1; cámbialo cuando el equipo confirme tipo, relleno y escala.',
     },
   },
   materialActivo: 'al-6061-t6',

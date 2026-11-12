@@ -39,8 +39,10 @@ export function construirPiezas() {
     {
       id: 'adaptador', nombre: 'Adaptador superior', descripcion: 'Soporte con receptáculo circular para el socket', cuerpo: 'muslo', despiece: [0, 60, 0],
       cuerpos: [
-        { eje: 'y', contorno: rect(ad.xMin, -ad.anchoZ / 2, ad.xMax, ad.anchoZ / 2), a0: ad.yBase, a1: yPlacaSup, forma: { tipo: 'rect' },
-          barrenos: [[ax, 12], [ax, -12], [bx, 5], [bx, -5]].map(([u, v]) => ({ u, v, d: tornillo, ajuste: 'pasado M6' })) },
+        { eje: 'y', contorno: rect(ad.xCorte, -ad.anchoZ / 2, ad.xMax, ad.anchoZ / 2), a0: ad.yBase, a1: yPlacaSup, forma: { tipo: 'rect' },
+          barrenos: [[ax, 12], [ax, -12]].map(([u, v]) => ({ u, v, d: tornillo, ajuste: 'pasado M6' })) },
+        { eje: 'y', contorno: rect(ad.xMin, -ad.anchoLengua / 2, ad.xCorte, ad.anchoLengua / 2), a0: ad.yBase, a1: yPlacaSup, forma: { tipo: 'rect' },
+          barrenos: [[bx, 5], [bx, -5]].map(([u, v]) => ({ u, v, d: tornillo, ajuste: 'pasado M6' })) },
         { eje: 'y', contorno: circulo(m.ejePilonX, 0, ad.anilloDext / 2), a0: yPlacaSup, a1: yPlacaSup + ad.anilloAlto, forma: { tipo: 'circulo', d: ad.anilloDext },
           barrenos: [{ u: m.ejePilonX, v: 0, d: ad.anilloDint, ajuste: 'H8' }] },
       ],
@@ -58,12 +60,14 @@ export function construirPiezas() {
     { id: 'c2Izq', nombre: 'Barra lateral c2 izquierda', descripcion: 'Eslabón trasero B–C', cuerpo: 'c2', despiece: [0, 0, -28],
       cuerpos: [barra(mec.L2, -P.separacionC2 - bl.espesor, -P.separacionC2)] },
     { id: 'barraTrasera', nombre: 'Barra trasera', descripcion: 'Travesaño que une las dos c2 y hace de tope', cuerpo: 'c2', despiece: [0, 40, 0],
-      cuerpos: [{ eje: 'z', contorno: rect(mec.L2 / 2 - P.barraTrasera.largo / 2, -P.barraTrasera.alto / 2, mec.L2 / 2 + P.barraTrasera.largo / 2, P.barraTrasera.alto / 2),
-        a0: -P.separacionC2, a1: P.separacionC2, forma: { tipo: 'rect' }, barrenos: [{ u: mec.L2 / 2, v: 0, d: 5, ajuste: 'M5' }] }] },
+      cuerpos: [{ eje: 'z', contorno: rect(mec.L2 * P.barraTrasera.posicion - P.barraTrasera.largo / 2, P.barraTrasera.desfase - P.barraTrasera.alto / 2, mec.L2 * P.barraTrasera.posicion + P.barraTrasera.largo / 2, P.barraTrasera.desfase + P.barraTrasera.alto / 2),
+        a0: -P.separacionC2 - bl.espesor, a1: P.separacionC2 + bl.espesor, forma: { tipo: 'rect' }, barrenos: [{ u: mec.L2 * P.barraTrasera.posicion, v: P.barraTrasera.desfase, d: 5, ajuste: 'M5' }] }] },
     { id: 'infDelantera', nombre: 'Barra inferior delantera', descripcion: 'Porta-eje D, atornillada a la base', cuerpo: 'pierna', despiece: [30, -25, 0],
       cuerpos: [bloque(dx, ba.yTope, P.barraInfDelantera.ySuperior, P.barraInfDelantera.medioAnchoX, P.separacionC1, 'D', dy)] },
     { id: 'infTrasera', nombre: 'Barra inferior trasera', descripcion: 'Porta-eje C, atornillada a la base', cuerpo: 'pierna', despiece: [-35, -25, 0],
-      cuerpos: [bloque(cx, ba.yTope, P.barraInfTrasera.ySuperior, P.barraInfTrasera.medioAnchoX, P.separacionC2, 'C', cy)] },
+      cuerpos: [[-P.barraInfTrasera.zExterior, -P.barraInfTrasera.zInterior], [P.barraInfTrasera.zInterior, P.barraInfTrasera.zExterior]].map(([z0, z1]) => ({
+        eje: 'z', contorno: rect(cx - P.barraInfTrasera.medioAnchoX, ba.yTope, cx + P.barraInfTrasera.medioAnchoX, P.barraInfTrasera.ySuperior), a0: z0, a1: z1, forma: { tipo: 'rect' },
+        barrenos: [{ u: cx, v: cy, d, ajuste: 'H7' }] })) },
     { id: 'base', nombre: 'Base inferior', descripcion: 'Placa que recibe las barras inferiores y el tubo', cuerpo: 'pierna', despiece: [0, -60, 0],
       cuerpos: [{ eje: 'y', contorno: rect(ba.xMin, -ba.anchoZ / 2, ba.xMax, ba.anchoZ / 2), a0: yBaseInf, a1: ba.yTope, forma: { tipo: 'rect' },
         barrenos: [[dx, 12], [dx, -12], [cx, 5], [cx, -5]].map(([u, v]) => ({ u, v, d: tornillo, ajuste: 'pasado M6' })) }] },
@@ -82,11 +86,11 @@ export function construirPiezas() {
     }, 0);
   });
 
-  const largoC1 = 2 * (P.separacionC1 + bl.espesor) + 4, largoC2 = 2 * (P.separacionC2 + bl.espesor) + 4;
+  const largoC1 = 2 * (P.separacionC1 + bl.espesor) + 4, largoC2 = 2 * (P.separacionC2 + bl.espesor) + 4, largoC = 2 * P.barraInfTrasera.zExterior + 4;
   const ejes = [
     { id: 'pernoA', nombre: 'Perno eje A', cuerpo: 'muslo', centro: m.A, largo: largoC1 },
     { id: 'pernoB', nombre: 'Perno eje B', cuerpo: 'muslo', centro: m.B, largo: largoC2 },
-    { id: 'pernoC', nombre: 'Perno eje C', cuerpo: 'pierna', centro: m.C, largo: largoC2 },
+    { id: 'pernoC', nombre: 'Perno eje C', cuerpo: 'pierna', centro: m.C, largo: largoC },
     { id: 'pernoD', nombre: 'Perno eje D', cuerpo: 'pierna', centro: m.D, largo: largoC1 },
   ].map((e) => ({ ...e, d, volumenMm3: (Math.PI * d * d) / 4 * e.largo }));
 
@@ -97,7 +101,8 @@ export function masaRodilla(materialId) {
   const { piezas, ejes } = construirPiezas();
   const mat = CONFIG.materiales[materialId];
   if (!mat || !mat.densidadKgM3) return null;
-  const maquinadas = piezas.reduce((s, p) => s + p.volumenMm3, 0) * 1e-9 * mat.densidadKgM3 * 1000;
+  const k3 = (mat.escala || 1) ** 3; // un prototipo a escala cambia el volumen con el cubo
+  const maquinadas = piezas.reduce((s, p) => s + p.volumenMm3, 0) * 1e-9 * mat.densidadKgM3 * 1000 * k3;
   const pernos = ejes.reduce((s, e) => s + e.volumenMm3, 0) * 1e-9 * CONFIG.pernos.densidadKgM3 * 1000;
   return { maquinadasG: maquinadas, pernosG: pernos, totalG: maquinadas + pernos,
     porPieza: Object.fromEntries(piezas.map((p) => [p.id, p.volumenMm3 * 1e-9 * mat.densidadKgM3 * 1000])) };

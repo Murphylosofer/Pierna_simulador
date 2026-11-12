@@ -5,6 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CONFIG } from './config.js';
 import { aMundo, rot, sum, esc, res, unit, norma } from './mat.js';
+import { rgbEsfuerzo, COLOR_MATERIAL } from './colores.js';
 
 const Y = new THREE.Vector3(0, 1, 0);
 const v3 = (p, z = 0) => new THREE.Vector3(p[0], p[1], z);
@@ -24,16 +25,7 @@ export function geometriaCuerpo(c) {
   return g;
 }
 
-// Color del mapa de esfuerzos: azul → verde → amarillo → rojo (uso 0 → 1 de la fluencia).
-export function colorEsfuerzo(uso) {
-  const u = Math.max(0, Math.min(1, uso));
-  const paradas = [[0, [0.16, 0.36, 0.8]], [0.33, [0.12, 0.62, 0.38]], [0.66, [0.93, 0.76, 0.1]], [1, [0.8, 0.13, 0.1]]];
-  let i = 0;
-  while (i < paradas.length - 2 && u > paradas[i + 1][0]) i++;
-  const [u0, c0] = paradas[i], [u1, c1] = paradas[i + 1];
-  const k = (u - u0) / (u1 - u0);
-  return new THREE.Color(c0[0] + (c1[0] - c0[0]) * k, c0[1] + (c1[1] - c0[1]) * k, c0[2] + (c1[2] - c0[2]) * k);
-}
+export const colorEsfuerzo = (uso) => new THREE.Color(...rgbEsfuerzo(uso));
 
 export function crearEscena(contenedor) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
@@ -153,7 +145,7 @@ export function crearEscena(contenedor) {
     const tb = CONFIG.piezas.tuboReceptor, ba = CONFIG.piezas.base, dp = CONFIG.distal;
     const yTubo = ba.yTope - ba.espesorPlaca - tb.largo;
     p.pilon = cil(dp.pilonDiametro / 2, dp.pilonDiametro / 2, mats.aluminio(), 24);
-    entre(p.pilon, new THREE.Vector3(0, -M.Lps, 0), new THREE.Vector3(0, yTubo + 25, 0));
+    entre(p.pilon, new THREE.Vector3(CONFIG.mecanismo.ejePilonX, -M.Lps, 0), new THREE.Vector3(CONFIG.mecanismo.ejePilonX, yTubo + 25, 0));
     marcos.pierna.add(p.pilon);
     // Pie SACH: perfil lateral extruido.
     const Lf = s.pie, h = dp.pieAlturaTobillo;
@@ -297,15 +289,18 @@ export function crearEscena(contenedor) {
       g.position.set(pz.despiece[0] * fd, pz.despiece[1] * fd, pz.despiece[2] * fd);
       const e = inst.cargas.esfuerzos[pz.id];
       g.children.forEach((m) => {
-        if (ver.esfuerzos && e && e.uso != null) { m.material.color.copy(colorEsfuerzo(e.uso)); m.material.metalness = 0.25; m.material.roughness = 0.6; }
+        if (ver.color === 'esfuerzo' && e && e.uso != null) { m.material.color.copy(colorEsfuerzo(e.uso)); m.material.metalness = 0.25; m.material.roughness = 0.6; }
+        else if (ver.color === 'material') { m.material.color.setRGB(...COLOR_MATERIAL[M.materialId].rgb); m.material.metalness = M.materialId === 'prototipo-3d' ? 0 : 0.5; m.material.roughness = 0.55; }
+        else if (M.materialId === 'prototipo-3d') { m.material.color.set(0xe9e4dc); m.material.metalness = 0; m.material.roughness = 0.8; }
         else { m.material.color.set(0xc9ccd1); m.material.metalness = 0.9; m.material.roughness = 0.34; }
       });
     }
     for (const e of M.ejes) {
       const m = mallas[e.id], es = inst.cargas.esfuerzos[e.id];
-      m.position.z = fd * 0;
       m.scale.y = 1 + fd * 0.6;
-      if (ver.esfuerzos && es) { m.material.color.copy(colorEsfuerzo(es.uso)); m.material.metalness = 0.25; } else { m.material.color.set(0x70757d); m.material.metalness = 1; }
+      if (ver.color === 'esfuerzo' && es) { m.material.color.copy(colorEsfuerzo(es.uso)); m.material.metalness = 0.25; }
+      else if (ver.color === 'material') { m.material.color.setRGB(...COLOR_MATERIAL.acero.rgb); m.material.metalness = 0.5; }
+      else { m.material.color.set(0x70757d); m.material.metalness = 1; }
     }
     const op = ver.transparente ? 0.16 : 1;
     for (const mt of [mats.piel, mats.socket]) { mt.transparent = op < 1; mt.opacity = op; mt.depthWrite = op >= 1; }

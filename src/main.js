@@ -8,6 +8,7 @@ import { NORMATIVA } from './datosMarcha.js';
 import { crearEscena } from './escena3d.js';
 import { grafica } from './graficas.js';
 import { fmt } from './mat.js';
+import { COLOR_MATERIAL, hex } from './colores.js';
 import * as pMecanismo from './figuraIso.js';
 import * as pDiagramas from './diagramas.js';
 import * as pPlanos from './planos.js';
@@ -24,12 +25,14 @@ const app = {
     materialId: CONFIG.materialActivo,
     escId: 'marcha', t: 0, reproduciendo: true, velocidad: 1,
     modo: 'presentacion', pestana: 'simulacion',
-    ver: { cir: true, lineas: true, carga: true, fuerzas: false, esfuerzos: false, transparente: false, despiece: 0 },
+    ver: { cir: true, lineas: true, carga: true, fuerzas: false, color: 'aluminio', transparente: false, despiece: 0 },
   },
   modelo: null, inst: null, escena: null,
   chipNorma, fmt,
 };
 window.__app = app; // para las revisiones automáticas
+window.__iso = (p) => pMecanismo.__pose(p);
+window.__isoCiclos = () => pMecanismo.__ciclos();
 
 const PESTANAS = [
   { id: 'simulacion', nombre: 'Simulación' },
@@ -153,8 +156,9 @@ function montarSimulacion() {
       </div></details>
       <details><summary>Material</summary><div class="cuerpo" id="lista-material"></div></details>
       <details><summary>Qué mostrar</summary><div class="cuerpo">
-        ${[['cir', 'Centro instantáneo de rotación (CIR)'], ['lineas', 'Líneas de las barras extendidas'], ['carga', 'Línea de carga (reacción del suelo)'], ['fuerzas', 'Vectores de fuerza en las barras'], ['esfuerzos', 'Mapa de esfuerzos'], ['transparente', 'Cuerpo transparente']]
+        ${[['cir', 'Centro instantáneo de rotación (CIR)'], ['lineas', 'Líneas de las barras extendidas'], ['carga', 'Línea de carga (reacción del suelo)'], ['fuerzas', 'Vectores de fuerza en las barras'], ['transparente', 'Cuerpo transparente']]
           .map(([k, n]) => `<label class="casilla"><input type="checkbox" id="ver-${k}" data-ver="${k}">${n}</label>`).join('')}
+        <div class="campo"><span class="rotulo">Color de las piezas</span><div class="segmentado" id="seg-color"><button type="button" data-v="aluminio">Normal</button><button type="button" data-v="esfuerzo">Esfuerzo</button><button type="button" data-v="material">Material</button></div></div>
         <div class="campo"><label for="in-despiece">Despiece <output id="out-despiece"></output></label><input id="in-despiece" type="range" min="0" max="1" step="0.01" value="0"></div>
         <p class="ayuda">El mapa de esfuerzos es un cálculo aproximado con vigas y pernos, no un análisis por elementos finitos (FEA).</p>
       </div></details>
@@ -166,6 +170,7 @@ function montarSimulacion() {
           ${[['isometrica', 'Isométrica'], ['frontal', 'Frontal'], ['lateral', 'Lateral'], ['posterior', 'Posterior'], ['superior', 'Superior'], ['rodilla', 'Centrar en rodilla']].map(([v, n]) => `<button type="button" data-vista="${v}">${n}</button>`).join('')}
         </div>
         <div class="escala-esf" id="escala-esf" hidden>Esfuerzo / fluencia<i></i><div><span>0 %</span><span>50 %</span><span>100 %</span></div></div>
+        <div class="escala-esf" id="escala-mat" hidden></div>
         <div class="insignia" id="insignia">—</div>
       </div>
       <div class="panel transporte">
@@ -224,6 +229,7 @@ function montarSimulacion() {
     } else { u.segmentos.modo = 'automatico'; u.segmentos.personalizados = {}; }
     alCambiarModelo();
   });
+  $$('#seg-color button').forEach((b) => b.addEventListener('click', () => { app.estado.ver.color = b.dataset.v; pintarControles(); refrescar(); }));
   $$('[data-ver]').forEach((c) => c.addEventListener('change', () => { app.estado.ver[c.dataset.ver] = c.checked; refrescar(); }));
   $('#in-despiece').addEventListener('input', (e) => { app.estado.ver.despiece = +e.target.value; refrescar(); });
   $$('[data-vista]').forEach((b) => b.addEventListener('click', () => app.escena.setVista(b.dataset.vista)));
@@ -259,11 +265,13 @@ function pintarControles() {
   $('#lista-material').innerHTML = Object.entries(CONFIG.materiales).map(([id, m]) => `
     <button type="button" class="material" data-mat="${id}" aria-pressed="${id === materialId}">
       <strong>${m.nombre}${id === 'al-6061-t6' ? ' · recomendado' : ''}</strong>
-      <span>${m.pendiente ? 'Pendiente de datos del equipo' : `Fluencia ${m.fluenciaMPa} MPa · ${m.densidadKgM3} kg/m³ · costo relativo ${fmt(m.costoRelativo, 1)}×`}</span>
+      <span>${m.pendiente ? 'Pendiente de datos del equipo' : `${m.estimado ? 'Supuesto · ' : ''}Fluencia ${m.fluenciaMPa} MPa · ${m.densidadKgM3} kg/m³ · costo relativo ${fmt(m.costoRelativo, 1)}×`}</span>
       <span>${m.nota}</span>
     </button>`).join('') + `<div class="chips">${chipNorma('astm-b221-b211')}</div>`;
   $$('[data-mat]').forEach((b) => b.addEventListener('click', () => { app.estado.materialId = b.dataset.mat; alCambiarModelo(); }));
   for (const k of Object.keys(ver)) { const c = $(`#ver-${k}`); if (c) c.checked = ver[k]; }
+  $$('#seg-color button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === ver.color));
+  $('#escala-mat').innerHTML = [materialId, 'acero'].map((id) => `<span style="display:flex;align-items:center;gap:6px"><i style="display:inline-block;width:12px;height:12px;border-radius:3px;margin:0;background:${hex(COLOR_MATERIAL[id].rgb)}"></i>${COLOR_MATERIAL[id].nombre}</span>`).join('');
   $('#out-despiece').textContent = `${Math.round(ver.despiece * 100)} %`;
 }
 
@@ -359,7 +367,8 @@ function pintarLecturas(inst) {
   else if (fs < 1) { al.innerHTML = `<div class="aviso peligro"><strong>Factor de seguridad ${fmt(fs, 2)}: menor que 1.0.</strong> La pieza crítica superaría la fluencia.</div>`; visor.classList.add('alerta-peligro'); }
   else if (fs < d.factorSeguridad) { al.innerHTML = `<div class="aviso cuidado"><strong>Factor de seguridad ${fmt(fs, 2)}: menor que ${fmt(d.factorSeguridad, 1)}.</strong> Por debajo del mínimo de diseño.</div>`; visor.classList.add('alerta-cuidado'); }
   else al.innerHTML = '';
-  $('#escala-esf').hidden = !app.estado.ver.esfuerzos;
+  $('#escala-esf').hidden = app.estado.ver.color !== 'esfuerzo';
+  $('#escala-mat').hidden = app.estado.ver.color !== 'material';
 }
 
 // ---------------- ciclo principal ----------------
