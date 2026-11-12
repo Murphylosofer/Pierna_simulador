@@ -4,6 +4,7 @@ import { segmentos } from './antropometria.js';
 import { construirPiezas, masaRodilla } from './piezas.js';
 import { resolverCargas, pruebaISO, nivelParaMasa } from './cargas.js';
 import { escenario, faseEn } from './escenarios.js';
+import { estudioPiston } from './piston.js';
 import { rad, rot, sum, res, esc, aMundo, aLocal, dirLocal, norma } from './mat.js';
 
 export function crearModelo(usuario, materialId) {
@@ -101,6 +102,7 @@ export function crearModelo(usuario, materialId) {
     validacion: mec.validar(),
     centroda: mec.centroda(),
     masa: masaRodilla(materialId),
+    piston: estudioPiston(mec),
     iso: () => pruebaISO(mec, mat),
     nivelISO: nivelParaMasa(usuario.pesoKg),
     capacidadDisenoKg: CONFIG.diseno.masaPacienteKg * CONFIG.diseno.factorSeguridad,

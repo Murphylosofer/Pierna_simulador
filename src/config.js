@@ -79,6 +79,36 @@ export const CONFIG = {
     impacto: { valor: 'según nivel K (2.0–3.0)', fuente: 'Nilsson y Thorstensson (1989): 2–2.9 PC en carrera; se usa como cota de tropiezo.' },
   },
 
+  // Medidas REALES leídas de los planos de SolidWorks del equipo (Drive, carpeta "Rodilla medidas", 11-nov-2026).
+  // Solo se pudieron extraer las cotas en texto, no ver el dibujo: falta asignar cada cota a su forma
+  // y reconstruir las piezas. Hasta entonces la simulación sigue usando la geometría estimada de abajo.
+  medidasReales: {
+    estimado: false,
+    pendienteDeAplicar: true,
+    ejeSuperior: { diametro: 5, largo: 55 }, // "Eje Superior"
+    ejeInferior: { diametro: 5, largo: 70 }, // "Eje inferior" (el cuadro de datos dice "Eslabon2")
+    afs1: { largo: 75, anchoExterior: 55, pared: 4, radioOreja: 10, barreno: 5, cotas: [77.14, 75.67, 10.51] }, // adaptador femoral superior
+    adaptadorFemoralInferior: { ladoBase: 75, claroInterior: 47, radioOreja: 10, barreno: 5, cilindroDiametro: 40, cilindroAlto: 40, cotas: [64.29] },
+    claroInterior: 47, // 55 − 2 × 4: ancho libre entre paredes de las horquillas
+    canalCentral: 31, // 47 − 2 × 8: lo que queda entre los eslabones para el pistón
+  },
+
+  // Pistón neumático propuesto (especificaciones_del_pistón.md). Los anclajes son una propuesta de esta
+  // simulación sobre la geometría estimada; se mueven aquí cuando se reconstruyan los adaptadores reales.
+  piston: {
+    estimado: true,
+    tipo: 'Minicilindro neumático de doble efecto, ISO 6432',
+    diametroEmbolo: 16,
+    diametroExterior: 19, // camisa de 18 a 20 mm
+    roscaVastago: 'M5 × 0.8',
+    pasador: 5,
+    retraidoMin: 85, retraidoMax: 95, // longitud entre ojillos con el vástago recogido
+    modelos: [{ nombre: 'CDJ2B 16×25', carrera: 25 }, { nombre: 'CDJ2B 16×30', carrera: 30 }],
+    presionMPa: 0.6, // presión típica de taller (6 bar), supuesta
+    anclajeSuperior: [-26, 65], // en el cuerpo superior (muslo), junto al eje B
+    anclajeInferior: [-22, -50], // en la base, detrás del tubo receptor
+  },
+
   // Mecanismo de 4 barras en el plano sagital, a 0° de flexión.
   // Ejes: x anterior, y hacia arriba, origen = centro de referencia de la rodilla. mm.
   mecanismo: {

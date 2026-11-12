@@ -4,8 +4,9 @@ import { CONFIG } from './config.js';
 import { escenario } from './escenarios.js';
 import { grafica } from './graficas.js';
 import { aMundo, rot, sum, res, esc, unit, norma, fmt } from './mat.js';
+import { diagramaPiston } from './piston.js';
 
-let raiz, app_, gTorque, gFuerza;
+let raiz, app_, gTorque, gFuerza, gPiston;
 const pt = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
 const DEF = `<defs><marker id="pf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker>
   <pattern id="tierra" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="var(--tenue)" stroke-width="1"/></pattern></defs>`;
@@ -95,7 +96,23 @@ function tka(inst) {
 
 function pintarGraficas() {
   const M = app_.modelo, escn = escenario(app_.estado.escId), c = M.ciclo(escn.id), T = escn.duracion(M.ctx);
-  gTorque?.destruir(); gFuerza?.destruir();
+  gTorque?.destruir(); gFuerza?.destruir(); gPiston?.destruir();
+  const E = M.piston, cp = CONFIG.piston;
+  gPiston = grafica(raiz.querySelector('#dg-piston-g'), { titulo: 'Longitud del pistón contra flexión', unidad: 'mm entre ojillos', ejeX: '° de flexión', xMin: 0, xMax: 135, yMin: 80, yMax: 125, decimales: 1,
+    series: [{ nombre: 'Longitud entre ojillos', color: 'var(--serie-sana)', puntos: E.curva.map((c) => [c.theta, c.L]) }],
+    refs: [{ y: cp.retraidoMin, texto: `Retraído mínimo ${cp.retraidoMin} mm`, incluir: true }, { y: cp.retraidoMax, texto: `Retraído máximo ${cp.retraidoMax} mm`, incluir: true }, { y: E.Lmin + 30, texto: 'Fin de carrera de 30 mm', color: 'var(--aviso)', incluir: true }],
+    nota: `De ${fmt(E.Lmax, 1)} mm con la pierna recta a ${fmt(E.Lmin, 1)} mm a 135°: usa ${fmt(E.carrera, 1)} mm de carrera.` });
+  const si = (b) => `<td style="color:var(--${b ? 'ok' : 'mal'});font-weight:600">${b ? 'Cumple' : 'No cumple'}</td>`;
+  raiz.querySelector('#dg-piston-t').innerHTML = `<div class="tabla-desliza"><table><thead><tr><th>Comprobación</th><th>Resultado</th><th>Requisito del equipo</th><th></th></tr></thead><tbody>
+    <tr><td>Carrera necesaria de 0° a 135°</td><td class="n">${fmt(E.carrera, 1)} mm</td><td>25 a 30 mm</td>${si(E.carrera <= 30)}</tr>
+    <tr><td>Longitud retraída entre ojillos</td><td class="n">${fmt(E.Lmin, 1)} mm</td><td>${cp.retraidoMin} a ${cp.retraidoMax} mm</td>${si(E.cabeRetraido)}</tr>
+    <tr><td>Diámetro exterior de la camisa</td><td class="n">${cp.diametroExterior} mm</td><td>menor que el canal de ${CONFIG.medidasReales.canalCentral} mm</td>${si(E.cabeCanal)}</tr>
+    <tr><td>Pasadores de montaje</td><td class="n">Ø${cp.pasador} mm</td><td>ejes de Ø${CONFIG.medidasReales.ejeSuperior.diametro} mm</td>${si(cp.pasador === CONFIG.medidasReales.ejeSuperior.diametro)}</tr>
+    <tr><td>Modelo que alcanza</td><td>${E.modelo ? E.modelo.nombre : 'ninguno de los dos'}</td><td>CDJ2B 16×25 o 16×30</td>${si(!!E.modelo)}</tr>
+    <tr><td>Fuerza al extender a ${fmt(cp.presionMPa * 10, 0)} bar</td><td class="n">${fmt(E.fuerza, 0)} N</td><td>F = p · π·d²/4</td><td></td></tr>
+    <tr><td>Par máximo sobre la rodilla</td><td class="n">${fmt(E.parMaxNm, 1)} N·m</td><td>F × brazo respecto al CIR</td><td></td></tr>
+  </tbody></table></div>
+  <div class="aviso cuidado" style="margin-top:10px"><span><strong>Estudio en el plano lateral, todavía no en 3D.</strong> Con estos anclajes la carrera pide el modelo de 30 mm; el de 25 mm se queda corto. En la geometría estimada el pistón cruzaría la base y la barra superior trasera, porque ahí son macizas; en los planos reales los adaptadores son horquillas en U con el centro libre. Falta reconstruir esas piezas con las cotas de SolidWorks para confirmar holguras.</span></div>`;
   gTorque = grafica(raiz.querySelector('#dg-torque'), { titulo: 'Torque contra ángulo de flexión', unidad: 'N·m', ejeX: '° de flexión', xMin: 0, xMax: 135,
     series: [{ nombre: 'Torque externo en la rodilla', color: 'var(--serie-protesis)', puntos: c.muestras.map((m) => [m.theta, m.torque]) }], parametrica: true,
     nota: `Escenario: ${escn.nombre}. La curva recorre el movimiento en orden; el punto marca el instante actual. A 0° se apilan los valores del apoyo.` });
@@ -112,6 +129,8 @@ export function actualizar(app) {
   raiz.querySelector('#dg-cin').innerHTML = cinematico(inst);
   raiz.querySelector('#dg-dcl').innerHTML = cuerpoLibre(inst);
   raiz.querySelector('#dg-tka').innerHTML = tka(inst);
+  raiz.querySelector('#dg-piston').innerHTML = diagramaPiston(app.modelo.mec, inst.theta);
+  gPiston?.cursor(inst.theta);
   const escn = escenario(app.estado.escId), T = escn.duracion(app.modelo.ctx);
   gTorque?.cursor(inst.t * 100); gFuerza?.cursor(inst.t * T);
   raiz.querySelector('#dg-estado').innerHTML = `<strong>${escn.nombre}</strong> · ${inst.fase.nombre} · θ ${fmt(inst.theta, 1)}° · CIR (${inst.sol.cir ? fmt(inst.sol.cir[0], 0) + ', ' + fmt(inst.sol.cir[1], 0) : '—'}) mm · ${inst.cargado ? (inst.estable ? 'estable' : 'requiere control') : 'sin carga'}`;
@@ -139,6 +158,8 @@ export function montar(cont, app) {
       <div class="panel tarjeta"><h3>Zona de estabilidad y alineación de banco</h3><p class="ayuda">Línea azul discontinua: trocánter–rodilla–tobillo (TKA). La rodilla queda ${CONFIG.diseno.desplazamientoPosteriorEjeMm} mm detrás de ella.</p><div id="dg-tka"></div><div class="chips">${app.chipNorma('radcliffe')}${app.chipNorma('iso-10328')}</div></div>
       <div class="panel tarjeta ancho"><h3>Diagramas de cuerpo libre</h3><p class="ayuda">Fuerzas sobre cada cuerpo en este instante. Azul: reacciones en los pernos. Guinda: carga externa. Las flechas indican dirección; la magnitud está en el rótulo.</p><div class="dcl" id="dg-dcl"></div></div>
       <div id="dg-torque"></div><div id="dg-fuerza"></div>
+      <div class="panel tarjeta ancho"><h3>Pistón neumático (propuesta del equipo)</h3><p class="ayuda">Minicilindro de doble efecto Ø16 entre el cuerpo superior y la base. Al flexionar la rodilla el vástago entra; las válvulas estranguladoras frenan ese movimiento y el aire ayuda a extender.</p>
+        <div class="dg" style="margin-top:10px"><div id="dg-piston"></div><div id="dg-piston-g"></div></div><div id="dg-piston-t" style="margin-top:12px"></div></div>
     </div>`;
   cont.querySelector('#dg-play').addEventListener('click', () => { app.estado.reproduciendo = !app.estado.reproduciendo; actualizar(app); });
   pintarGraficas();
