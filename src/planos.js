@@ -359,8 +359,9 @@ export function montar(cont, app) {
       #plano-lista{display:grid;gap:6px;padding:12px}
       #plano-lista button{text-align:left;border:1px solid var(--linea);background:var(--superficie);border-radius:var(--radio);padding:8px 12px;min-height:44px;font-weight:500}
       #plano-lista button[aria-pressed=true]{background:var(--guinda-suave);border-color:var(--guinda);color:var(--guinda)}
-      .plano-marco{overflow-x:auto;border:1px solid var(--linea);border-radius:var(--radio);background:var(--papel)}
-      #plano-hoja svg{display:block;width:100%;min-width:760px;height:auto}
+      .plano-marco{overflow:auto;max-height:82vh;border:1px solid var(--linea);border-radius:var(--radio);background:var(--papel);touch-action:pan-x pan-y}
+      #plano-hoja{width:var(--zoom,100%);min-width:760px}
+      #plano-hoja svg{display:block;width:100%;height:auto}
       .plano-acciones{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
       @media(max-width:900px){.planos{grid-template-columns:minmax(0,1fr)}#plano-lista{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
     </style>
@@ -371,6 +372,7 @@ export function montar(cont, app) {
       <nav class="panel" id="plano-lista" aria-label="Hojas"></nav>
       <div>
         <div class="plano-marco"><div id="plano-hoja"></div></div>
+        <div class="plano-acciones"><button type="button" class="boton chico" data-pz="1.4">Acercar</button><button type="button" class="boton chico" data-pz="0.714">Alejar</button><button type="button" class="boton chico" data-pz="0">Ajustar</button><span class="ayuda" style="align-self:center">Arrastra para mover la hoja; pellizca con dos dedos para acercar.</span></div>
         <div class="plano-acciones">
           <button type="button" class="boton primario" id="btn-pdf">PDF de esta hoja</button>
           <button type="button" class="boton" id="btn-pdf-todo">PDF de las 13 hojas</button>
@@ -391,6 +393,20 @@ export function montar(cont, app) {
   cont.querySelector('#btn-svg').addEventListener('click', () => baja(`plano-${slug(hojas[actual].titulo)}.svg`, svgDeHoja(hojas[actual], { independiente: true }), 'image/svg+xml'));
   cont.querySelector('#btn-dxf').addEventListener('click', () => { const h = hojas[actual]; if (h.pieza) baja(`${slug(h.titulo)}.dxf`, dxfDe(h.vistasDxf), 'application/dxf'); });
   cont.querySelector('#btn-stl').addEventListener('click', () => { const h = hojas[actual]; if (h.pieza) baja(`${slug(h.titulo)}.stl`, stlDe(h.pieza.cuerpos.map(geometriaCuerpo)), 'model/stl'); });
+  // Acercar, alejar y pellizcar: cambia el ancho de la hoja dentro de un marco que se desplaza en ambos ejes.
+  const hoja = cont.querySelector('#plano-hoja'), marcoEl = cont.querySelector('.plano-marco');
+  let zoom = 1;
+  const ponZoom = (z) => { zoom = Math.max(1, Math.min(6, z)); hoja.style.setProperty('--zoom', zoom * 100 + '%'); hoja.style.minWidth = zoom > 1 ? 760 * zoom + 'px' : ''; };
+  cont.querySelectorAll('[data-pz]').forEach((b) => b.addEventListener('click', () => ponZoom(+b.dataset.pz ? zoom * +b.dataset.pz : 1)));
+  const dedos = new Map(); let d0 = 0, z0 = 1;
+  marcoEl.addEventListener('pointerdown', (e) => { dedos.set(e.pointerId, [e.clientX, e.clientY]); if (dedos.size === 2) { const [p, q] = [...dedos.values()]; d0 = Math.hypot(p[0] - q[0], p[1] - q[1]); z0 = zoom; } });
+  marcoEl.addEventListener('pointermove', (e) => {
+    const prev = dedos.get(e.pointerId); if (!prev) return;
+    if (dedos.size === 1 && e.pointerType === 'mouse') { marcoEl.scrollLeft -= e.clientX - prev[0]; marcoEl.scrollTop -= e.clientY - prev[1]; }
+    dedos.set(e.pointerId, [e.clientX, e.clientY]);
+    if (dedos.size === 2 && d0) { const [p, q] = [...dedos.values()]; ponZoom(z0 * Math.hypot(p[0] - q[0], p[1] - q[1]) / d0); }
+  });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) marcoEl.addEventListener(ev, (e) => { dedos.delete(e.pointerId); d0 = 0; });
   pintar();
 }
 export function alMostrar() { pintar(); }

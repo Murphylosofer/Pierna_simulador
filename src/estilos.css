@@ -178,6 +178,17 @@ input[type='number']:disabled { background: var(--hundido); color: var(--tenue);
 .grafica .globo b { font-weight: 600; }
 .grafica .nota { font-size: 0.8rem; color: var(--tenue); margin-top: 4px; }
 
+.cmp-bloque { margin-top: 12px; display: grid; gap: 6px; }
+.cmp-bloque h4 { font-size: 0.98rem; }
+.cmp-fila { display: grid; grid-template-columns: 110px minmax(0, 1fr) 84px; gap: 10px; align-items: center; font-size: 0.9rem; }
+.cmp-fila.elegido span, .cmp-fila.elegido strong { color: var(--guinda); font-weight: 600; }
+.cmp-fila strong { text-align: right; }
+.cmp-barra { position: relative; height: 16px; background: var(--hundido); border-radius: 0 4px 4px 0; }
+.cmp-barra i { display: block; height: 100%; border-radius: 0 4px 4px 0; }
+.cmp-fila.elegido .cmp-barra i { outline: 2px solid var(--guinda); outline-offset: 1px; }
+.cmp-barra b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--tinta); }
+#comparacion { grid-column: span 1; }
+
 /* ---------- diálogos ---------- */
 dialog { border: 1px solid var(--linea); border-radius: var(--radio); background: var(--superficie); color: var(--tinta); padding: 0; max-width: min(560px, calc(100vw - 32px)); }
 dialog::backdrop { background: rgb(0 0 0 / 0.45); }

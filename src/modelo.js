@@ -87,9 +87,10 @@ export function crearModelo(usuario, materialId) {
     const m = [];
     for (let i = 0; i <= N; i++) {
       const r = instante(escId, i / N);
-      m.push({ t: i / N, theta: r.theta, torque: r.torqueNm, reaccionPC: r.reaccionPC, reaccionN: r.reaccionN, fs: r.fs, estable: r.estable, cargado: r.cargado, F1: r.cargas.F1, F2: r.cargas.F2 });
+      const fsPz = Math.min(...Object.entries(r.cargas.esfuerzos).filter(([id]) => !id.startsWith('perno')).map(([, e]) => e.fs ?? Infinity));
+      m.push({ fsPiezas: Number.isFinite(fsPz) ? fsPz : null, t: i / N, theta: r.theta, torque: r.torqueNm, reaccionPC: r.reaccionPC, reaccionN: r.reaccionN, fs: r.fs, estable: r.estable, cargado: r.cargado, F1: r.cargas.F1, F2: r.cargas.F2 });
     }
-    const res_ = { muestras: m, torqueMax: Math.max(...m.map((x) => Math.abs(x.torque))), fsMin: Math.min(...m.map((x) => x.fs ?? Infinity)), reaccionMax: Math.max(...m.map((x) => x.reaccionN)) };
+    const res_ = { muestras: m, torqueMax: Math.max(...m.map((x) => Math.abs(x.torque))), fsMin: Math.min(...m.map((x) => x.fs ?? Infinity)), fsPiezasMin: Math.min(...m.map((x) => x.fsPiezas ?? Infinity)), reaccionMax: Math.max(...m.map((x) => x.reaccionN)) };
     cache.set(k, res_);
     return res_;
   }

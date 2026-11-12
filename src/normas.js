@@ -14,6 +14,7 @@ export const GRUPOS = [
   { id: 'salud', nombre: 'Salud y dispositivos médicos' },
   { id: 'diseno', nombre: 'Diseño, dibujo y materiales' },
   { id: 'biomecanica', nombre: 'Referencias biomecánicas' },
+  { id: 'mecanica', nombre: 'Referencias de mecánica (origen de las fórmulas)' },
 ];
 
 export const NORMAS = [
@@ -130,6 +131,24 @@ export const NORMAS = [
     titulo: 'C. W. Radcliffe, Four-bar linkage prosthetic knee mechanisms: kinematics, alignment and prescription criteria, Prosthetics and Orthotics International 18',
     regula: 'Artículo de referencia sobre rodillas protésicas de 4 barras: centro instantáneo de rotación, estabilidad y alineación.',
     aplicacion: 'Criterio de estabilidad de la simulación: la rodilla es estable en apoyo cuando la línea de carga pasa por delante del CIR.',
+  },
+  {
+    id: 'norton', grupo: 'mecanica', nombre: 'Norton, Diseño de maquinaria', anio: null, estado: 'aplicada', verificada: false,
+    titulo: 'R. L. Norton, Diseño de maquinaria: síntesis y análisis de máquinas y mecanismos, McGraw-Hill',
+    regula: 'Libro de texto de mecanismos: análisis de posición del mecanismo de cuatro barras por ecuación de cierre de lazo y centros instantáneos.',
+    aplicacion: 'Ecuación de cierre de lazo que mueve la rodilla y cálculo del centro instantáneo de rotación (teorema de Aronhold-Kennedy).',
+  },
+  {
+    id: 'beer', grupo: 'mecanica', nombre: 'Beer y Johnston, Mecánica', anio: null, estado: 'aplicada', verificada: false,
+    titulo: 'F. P. Beer y E. R. Johnston, Mecánica vectorial para ingenieros: Estática, y Mecánica de materiales, McGraw-Hill',
+    regula: 'Libros de texto de estática y de resistencia de materiales: equilibrio, miembros de dos fuerzas, flexión y carga axial.',
+    aplicacion: 'Equilibrio ΣF = 0 y ΣM = 0 de las barras, torque M = R·d, y esfuerzos de flexión σ = M·c/I y axial σ = N/A.',
+  },
+  {
+    id: 'shigley', grupo: 'mecanica', nombre: 'Shigley, Diseño en ingeniería mecánica', anio: null, estado: 'aplicada', verificada: false,
+    titulo: 'R. G. Budynas y J. K. Nisbett, Diseño en ingeniería mecánica de Shigley, McGraw-Hill',
+    regula: 'Libro de texto de diseño de elementos de máquinas: pasadores, factor de seguridad, criterios de falla y fatiga.',
+    aplicacion: 'Cortante doble y flexión de pernos, aplastamiento y sección neta en barrenos, factor de seguridad, criterio de von Mises y línea de Goodman para fatiga.',
   },
 ];
 

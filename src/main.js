@@ -306,8 +306,8 @@ function pintarGraficas() {
   const P = 'var(--serie-protesis)', S = 'var(--serie-sana)';
   const ejeX = esMarcha ? '% del ciclo de marcha' : '% del movimiento';
   const cont = $('#graficas');
-  cont.innerHTML = '<div></div><div></div><div></div><div></div>';
-  const [a, b, cc, e] = cont.children;
+  cont.innerHTML = '<div></div><div></div><div></div><div></div><div></div><div class="panel grafica" id="comparacion"></div>';
+  const [a, b, cc, e, u] = cont.children;
   graficas.push(grafica(a, { titulo: 'Ángulo de la rodilla', unidad: '°', ejeX, xMin: 0, xMax: 100, yMin: 0,
     series: [{ nombre: 'Prótesis', color: P, puntos: serie((m) => m.theta) }, ...(esMarcha ? [{ nombre: 'Rodilla sana (Winter)', color: S, guion: true, puntos: sana(NORMATIVA.angulo) }] : [])],
     nota: esMarcha ? 'La rodilla pasiva se mantiene extendida durante el apoyo; la sana flexiona unos 20° para amortiguar.' : '' }));
@@ -324,6 +324,39 @@ function pintarGraficas() {
     series: [{ nombre: 'Factor de seguridad', color: P, puntos: serie((m) => (m.fs == null ? NaN : Math.min(m.fs, tope))) }],
     refs: [{ y: 1.5, texto: 'Mínimo de diseño 1.5', color: 'var(--aviso)' }, { y: 1, texto: 'Fluencia 1.0', color: 'var(--mal)' }],
     nota: M.mat.pendiente ? 'Sin datos del plástico del prototipo no se puede calcular.' : `Mínimo en este escenario: ${fmt(c.fsMin, 2)}. La escala se corta en ${tope}.` }));
+
+  // Uso del material elegido: esfuerzo de sus piezas como porcentaje de su fluencia.
+  graficas.push(grafica(u, { titulo: `Uso del material: ${M.mat.corto}`, unidad: '% de la fluencia', ejeX, xMin: 0, xMax: 100, yMin: 0, decimales: 0,
+    series: [{ nombre: `Piezas de ${M.mat.corto}`, color: P, puntos: serie((m) => (m.fsPiezas ? Math.min(160, 100 / m.fsPiezas) : 0)) }],
+    refs: [{ y: 100, texto: `Fluencia ${M.mat.fluenciaMPa} MPa`, color: 'var(--mal)', incluir: true }, { y: 100 / d.factorSeguridad, texto: 'Límite con factor 1.5', color: 'var(--aviso)', incluir: true }],
+    nota: `Cambia con el material: la misma carga ocupa más porcentaje de la fluencia en un material más débil. Pico: ${fmt(100 / c.fsPiezasMin, 0)} %.` }));
+  pintarComparacion();
+}
+
+// Comparación de los tres materiales en el escenario actual, con equivalencias respecto al elegido.
+function pintarComparacion() {
+  const e = app.estado, escn = escenario(e.escId), d = CONFIG.diseno, sel = e.materialId;
+  const filas = Object.keys(CONFIG.materiales).map((id) => {
+    const Mi = id === sel ? app.modelo : crearModelo(e.usuario, id), ci = Mi.ciclo(escn.id), mat = Mi.mat;
+    const fs = Math.min(ci.fsPiezasMin, 99);
+    return { id, mat, fs, fsTotal: ci.fsMin, masa: Mi.masa.totalG, usuarioMax: (e.usuario.pesoKg * Math.min(ci.fsMin, 99)) / d.factorSeguridad, pico: ci.reaccionMax, iso: Mi.iso().filter((f) => f.pasa).map((f) => f.nivel) };
+  });
+  const S = filas.find((f) => f.id === sel);
+  const barras = (titulo, clave, unidad, dec, ref) => {
+    const orden = [...filas].sort((p, q) => q[clave] - p[clave]), max = Math.max(...orden.map((f) => f[clave]), ref?.v || 0);
+    return `<div class="cmp-bloque"><h4>${titulo}</h4>${orden.map((f) => `<div class="cmp-fila${f.id === sel ? ' elegido' : ''}"><span>${f.mat.corto}${f.id === sel ? ' · elegido' : ''}</span><div class="cmp-barra"><i style="width:${Math.max(1.5, (f[clave] / max) * 100)}%;background:${hex(COLOR_MATERIAL[f.id].rgb)}"></i>${ref ? `<b style="left:${(ref.v / max) * 100}%" title="${ref.t}"></b>` : ''}</div><strong class="num">${fmt(f[clave], dec)} ${unidad}</strong></div>`).join('')}${ref ? `<p class="ayuda">La línea vertical marca ${ref.t}.</p>` : ''}</div>`;
+  };
+  const eq = filas.filter((f) => f.id !== sel).map((f) => {
+    const k = f.mat.fluenciaMPa / S.mat.fluenciaMPa, esc2 = ((f.mat.escala || 1) / (S.mat.escala || 1)) ** 2, carga = S.pico * k * esc2;
+    return `<tr><td><strong>${f.mat.corto}</strong></td><td class="n">${fmt(k * 100, 0)} %</td><td class="n">${fmt(f.masa / S.masa, 2)}×</td><td class="n">${fmt(carga, 0)} N (${fmt(carga / G, 1)} kg)</td><td>${f.iso.length ? f.iso.join(', ') : 'ninguno'}</td></tr>`;
+  }).join('');
+  $('#comparacion').innerHTML = `<header><h3>Comparación de materiales · ${escn.nombre}</h3></header>
+    ${barras('Factor de seguridad mínimo de las piezas', 'fs', '', 2, { v: d.factorSeguridad, t: 'el mínimo de diseño de 1.5' })}
+    ${barras('Peso de la rodilla', 'masa', 'g', 0, { v: d.pesoRodillaG, t: `los ${d.pesoRodillaG} g de referencia del equipo` })}
+    ${barras('Peso máximo de usuario con factor 1.5', 'usuarioMax', 'kg', 0, { v: app.modelo.capacidadDisenoKg, t: `la capacidad de diseño de ${fmt(app.modelo.capacidadDisenoKg, 1)} kg` })}
+    <div class="cmp-bloque"><h4>Equivalencias respecto a ${S.mat.corto}</h4>
+    <div class="tabla-desliza"><table><thead><tr><th>Material</th><th class="n">Resistencia</th><th class="n">Peso</th><th class="n">Carga de ensayo equivalente</th><th>Niveles ISO 10328</th></tr></thead><tbody>${eq}</tbody></table></div>
+    <p class="ayuda"><strong>Carga de ensayo equivalente:</strong> la fuerza que produce en ese material el mismo porcentaje de su fluencia que el pico de este escenario (${fmt(S.pico, 0)} N) produce en ${S.mat.corto}. Se calcula con F × (fluencia del otro / fluencia del elegido) × escala². Sirve para probar el prototipo sin romperlo. ${CONFIG.materiales['prototipo-3d'].estimado ? 'El PLA es un supuesto (20 % de relleno, escala 1:1) hasta que el equipo confirme el plástico.' : ''} Con pernos de acero en los tres casos; si el perno es la pieza crítica, el peso máximo de usuario coincide entre aluminios.</p></div>`;
 }
 
 function pintarLecturas(inst) {

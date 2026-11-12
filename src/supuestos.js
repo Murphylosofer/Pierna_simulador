@@ -1,6 +1,7 @@
 // Pestaña "Validación y supuestos": comprobaciones pedidas antes de entregar y lista de todo lo estimado.
 import { CONFIG, G } from './config.js';
 import { fmt } from './mat.js';
+import { revisarInterferencias } from './interferencias.js';
 
 let raiz, app_;
 const ok = (b) => `<span style="color:var(--${b ? 'ok' : 'mal'});font-weight:600">${b ? '✓ coincide' : '✗ no coincide'}</span>`;
@@ -49,7 +50,8 @@ function pintar() {
         <ul><li>El lazo siempre cierra: discriminante mínimo ${fmt(v.minDisc, 1)} mm (debe ser &gt; 0).</li>
         <li>Las barras nunca quedan paralelas: |sen| mínimo ${fmt(v.minPar, 2)} (sin punto muerto).</li>
         <li>Sin saltos de rama: el eje A se mueve como máximo ${fmt(v.saltoMax, 2)} mm por paso.</li>
-        <li>${v.cruceDesde == null ? 'Las barras c1 y c2 no se cruzan en la vista lateral.' : `A partir de ${fmt(v.cruceDesde, 0)}° las barras c1 y c2 se traslapan <em>en la vista lateral</em>. No chocan porque van en planos distintos (c1 por fuera, c2 por dentro), pero las holguras reales deben revisarse en SolidWorks.`}</li></ul></section>
+        <li>${(() => { const r = Object.entries(revisarInterferencias()); return r.length ? `<strong style="color:var(--mal)">Hay interferencias:</strong> ${r.map(([k, x]) => `${k} (${x.desde}°–${x.hasta}°, ${fmt(x.max, 1)} mm)`).join('; ')}.` : 'Sin interferencias: ningún par de piezas se encima en todo el rango (revisión prisma contra prisma cada 1°).'; })()}</li>
+        <li>${v.cruceDesde == null ? 'Las barras c1 y c2 no se cruzan en la vista lateral.' : `A partir de ${fmt(v.cruceDesde, 0)}° las barras c1 y c2 se cruzan <em>solo en la vista lateral</em>: van en planos distintos (c1 por fuera, c2 por dentro), así que no se tocan. Las holguras reales deben confirmarse en SolidWorks.`}</li></ul></section>
       <section class="panel vl"><h3>3. Nivel ISO 10328 para el peso elegido</h3>
         <p>Para ${fmt(M.usuario.pesoKg, 0)} kg corresponde el nivel <strong>${nivel}</strong>${datos ? ` (usuarios de hasta ${datos.masaKg} kg). Fuerzas usadas, condición I / II: prueba ${datos.I.prueba} / ${datos.II.prueba} N, última ${datos.I.ultimaSup} / ${datos.II.ultimaSup} N, cíclica ${datos.I.ciclica} / ${datos.II.ciclica} N, ${fmt(iso.ciclos / 1e6, 0)} millones de ciclos.` : '. Sus fuerzas no están cargadas en la simulación.'}</p>
         <p class="ayuda">Paciente de diseño de ${d.masaPacienteKg} kg ⇒ P4. Capacidad de diseño de ${fmt(M.capacidadDisenoKg, 1)} kg ⇒ P5. El resultado de cada nivel está en la pestaña Normas. ${app_.chipNorma('iso-10328', 'Nivel ' + nivel)}</p></section>
@@ -69,11 +71,34 @@ function pintar() {
       <tr><td>Velocidad, cadencia y flexión por nivel K</td><td class="estimado">Valores típicos estimados; la clasificación K no fija números</td><td><code>config.js → nivelesK</code></td></tr>
       <tr><td>Movimientos de cada escenario</td><td class="estimado">Posturas clave interpoladas, no captura de movimiento. Curvas sanas aproximadas de Winter y Perry</td><td><code>escenarios.js, datosMarcha.js</code></td></tr>
       <tr><td>Propiedades del aluminio</td><td>Mínimos de ASTM B221: 6061-T6 240/260 MPa, 7075-T6 485/540 MPa (fluencia/última)</td><td><code>config.js → materiales</code></td></tr>
-      <tr><td>Plástico del prototipo</td><td class="estimado">Pendiente: tipo, % de relleno y escala</td><td><code>config.js → materiales.prototipo-3d</code></td></tr>
+      <tr><td>Plástico del prototipo</td><td class="estimado">Supuesto: PLA, 20 % de relleno, escala 1:1, fluencia efectiva 22 MPa. Falta que el equipo lo confirme</td><td><code>config.js → materiales.prototipo-3d</code></td></tr>
       <tr><td>Fuerzas y desplazamientos de ISO 10328</td><td class="estimado">Transcritos de literatura secundaria; desplazamientos del nivel P5 para todos los niveles; análisis solo en el plano sagital</td><td><code>config.js → iso10328</code></td></tr>
       <tr><td>Modelo de esfuerzos</td><td>Estática plana con vigas y pernos; sin concentradores salvo en fatiga; no es FEA</td><td><code>cargas.js</code></td></tr>
       <tr><td>Muñón y altura de rodilla</td><td>Con muñón de ${fmt(M.seg.munon / 10, 1)} cm y muslo de ${fmt(M.seg.muslo / 10, 1)} cm no caben los ~10 cm de la rodilla; la simulación iguala la altura de ambas rodillas y acorta el socket</td><td><code>config.js → antropometria</code></td></tr>
       <tr><td>Parte distal en balanceo</td><td class="estimado">${CONFIG.distal.masaDistalKg} kg (base, pilón y pie); aceleraciones acotadas a 25 m/s²</td><td><code>config.js → distal</code></td></tr>
+    </tbody></table></div>
+    <h3 class="nm-grupo" style="margin-top:28px">5. Fórmulas aplicadas y de dónde salen</h3>
+    <p class="seccion-intro">Todas son fórmulas de libro de texto. Las citas son a la obra, no a una página: se tomaron de memoria y conviene confirmarlas en la edición que tenga el equipo. Lo marcado como criterio propio no viene de ninguna fuente.</p>
+    <div class="panel tabla-desliza"><table><thead><tr><th>Qué se calcula</th><th>Fórmula</th><th>Fuente</th><th>Archivo</th></tr></thead><tbody>
+      <tr><td>Posición del mecanismo</td><td>D + L₁·u(φ₁) = A; A + R(θ)(B₀ − A₀) = B; |B − C| = L₂ (intersección de dos círculos)</td><td>${app_.chipNorma('norton')}</td><td><code>cinematica.js</code></td></tr>
+      <tr><td>Centro instantáneo de rotación</td><td>Intersección de las rectas D–A y C–B (teorema de Aronhold-Kennedy)</td><td>${app_.chipNorma('norton')}${app_.chipNorma('radcliffe')}</td><td><code>cinematica.js</code></td></tr>
+      <tr><td>Estabilidad en apoyo</td><td>Estable si M<sub>CIR</sub> = (p − CIR) × R ≥ 0: la línea de carga pasa por delante del CIR</td><td>${app_.chipNorma('radcliffe')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Segmentos del cuerpo</td><td>Longitud = coeficiente × estatura (muslo 0.245, pierna 0.246, pie 0.152…); masa = fracción × peso</td><td>${app_.chipNorma('winter')}${app_.chipNorma('dempster')}</td><td><code>antropometria.js</code></td></tr>
+      <tr><td>Reacción del suelo</td><td>R = f · m · g, con f según la actividad</td><td>${app_.chipNorma('winter')}${app_.chipNorma('perry')} y artículos citados en <code>config.js → factoresCarga</code></td><td><code>escenarios.js</code></td></tr>
+      <tr><td>Torque en la rodilla</td><td>M = R · d (fuerza por brazo de palanca)</td><td>${app_.chipNorma('beer')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Fuerzas en las barras y el tope</td><td>F₁·u₁ + F₂·u₂ + F<sub>tope</sub>·n = R y ΣM = 0 (barras de dos fuerzas, sistema 3 × 3)</td><td>${app_.chipNorma('beer')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Peso e inercia en balanceo</td><td>F = −m·(g + a), principio de D'Alembert</td><td>${app_.chipNorma('winter')}</td><td><code>modelo.js</code></td></tr>
+      <tr><td>Cortante en pernos</td><td>τ = F / (2 · π·d²/4), cortante doble</td><td>${app_.chipNorma('shigley')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Flexión del perno</td><td>M = F·(L/4 − b/8); σ = 32·M / (π·d³)</td><td>${app_.chipNorma('shigley')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Barras laterales</td><td>Sección neta σ = N / ((w − d)·t); aplastamiento σ = N / (d·t)</td><td>${app_.chipNorma('shigley')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Tubo receptor y anillo</td><td>σ = M·c / I + N / A, con I = π(D⁴ − d⁴)/64</td><td>${app_.chipNorma('beer')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Placas (base y adaptador)</td><td>σ = 6·M / (b·t²), viga entre los dos porta-ejes</td><td>${app_.chipNorma('beer')} · el factor de tramo libre (1 − huella/claro) es <strong>criterio propio</strong></td><td><code>cargas.js</code></td></tr>
+      <tr><td>Factor de seguridad</td><td>FS = fluencia / esfuerzo máximo; cortante equivalente √3·τ (von Mises)</td><td>${app_.chipNorma('shigley')}${app_.chipNorma('astm-b221-b211')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Fatiga</td><td>1/n = σ<sub>a</sub>/S<sub>e</sub> + σ<sub>m</sub>/S<sub>ut</sub> (Goodman), con K<sub>t</sub> = ${CONFIG.iso10328.concentracionEsfuerzo} en el barreno</td><td>${app_.chipNorma('shigley')}${app_.chipNorma('iso-10328')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Prueba ISO simulada</td><td>Fuerzas de prueba, última y cíclica sobre la línea de carga de talón y de antepié</td><td>${app_.chipNorma('iso-10328')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Peso de la rodilla</td><td>m = Σ volumen × densidad</td><td>${app_.chipNorma('astm-b221-b211')}</td><td><code>piezas.js</code></td></tr>
+      <tr><td>Torque de referencia</td><td>274.2 N·m = 65 kg × 9.81 m/s² × 0.43 m</td><td>Dato del equipo</td><td><code>config.js</code></td></tr>
+      <tr><td>Equivalencia con el prototipo</td><td>F<sub>prototipo</sub> = F · (fluencia del plástico / fluencia del aluminio) · escala²</td><td><strong>Criterio propio</strong> por semejanza: mismo porcentaje de la fluencia en ambos</td><td><code>main.js</code></td></tr>
     </tbody></table></div>`;
 }
 
