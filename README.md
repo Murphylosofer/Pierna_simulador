@@ -17,7 +17,7 @@ npm run revisar  # capturas con Playwright en PC (1440x900) y teléfono (390x844
 node scripts/artefacto.cjs  # versión de dist/index.html lista para publicarse como artifact de Claude
 ```
 
-Al hacer push a `main`, `.github/workflows/pages.yml` publica `dist/` en GitHub Pages
+Al hacer push a la rama principal, `.github/workflows/pages.yml` compila y publica `dist/` en GitHub Pages
 (en el repositorio: Settings → Pages → Source: GitHub Actions).
 
 ## Cómo actualizar las medidas

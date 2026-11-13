@@ -1,7 +1,7 @@
 name: Publicar en GitHub Pages
 on:
   push:
-    branches: [main]
+    branches: [main, claude/inspiring-archimedes-i383mx]
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,6 +24,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # Revisa que ninguna pieza choque con otra antes de publicar.
+      - run: node scripts/interferencias.mjs
+      # Activa GitHub Pages con origen "GitHub Actions" si todavía no lo está.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
