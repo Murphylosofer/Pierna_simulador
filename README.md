@@ -28,3 +28,9 @@ La vista 3D, los cálculos, la figura isométrica y los planos se regeneran solo
 
 `dist/index.html` es un único archivo autocontenido. La simulación no es una certificación:
 la prótesis necesita pruebas físicas bajo ISO 10328 y registro sanitario ante COFEPRIS.
+
+## Página web (GitHub Pages)
+
+La página publicada es `index.html` en la raíz: es el resultado ya compilado, no se edita a mano.
+`npm run build` lo regenera a partir de `app.html` y `src/`, así que **después de cada cambio hay que
+compilar y subir también `index.html`**. Dirección: https://murphylosofer.github.io/Pierna_simulador/

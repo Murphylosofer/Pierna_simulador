@@ -16,6 +16,10 @@ node scripts/artefacto.cjs     # versión para publicar como artifact de Claude
 
 Antes de cada commit: `npm run build`, `npm run revisar` y `node scripts/interferencias.mjs`.
 
+**Página web:** GitHub Pages sirve `index.html` de la raíz, que es la página compilada (la fuente es
+`app.html`). `npm run build` lo regenera; hay que incluirlo en el commit para que la web se actualice.
+Dirección: https://murphylosofer.github.io/Pierna_simulador/
+
 ## Dónde vive cada cosa
 
 | Archivo | Qué contiene |
