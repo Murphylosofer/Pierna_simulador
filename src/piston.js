@@ -1,15 +1,15 @@
 // Estudio cinemático del pistón neumático propuesto por el equipo (especificaciones_del_pistón.md).
 // Calcula la longitud entre ojillos en todo el rango de flexión y la compara con el minicilindro elegido.
-// Es un estudio en el plano sagital: todavía no se dibuja en 3D porque la geometría estimada de los
-// adaptadores es maciza al centro, mientras que los planos reales (AFS1, adaptador femoral inferior)
-// son horquillas en "U" con el canal central libre.
+// Según el documento, la horquilla del pistón va en el Eje superior y el otro ojillo en el Eje inferior:
+// en la rodilla real eso es la diagonal B (AFS1, eje superior) – D (adaptador inferior, eje inferior),
+// dentro del canal de 47 mm entre los eslabones interiores.
 import { CONFIG } from './config.js';
 import { aMundo, res, norma, cruz, unit, fmt } from './mat.js';
 
 export function estudioPiston(mec) {
   const p = CONFIG.piston;
   const en = (g) => {
-    const s = mec.resolver(g), sup = aMundo(s.muslo, p.anclajeSuperior), inf = p.anclajeInferior, d = res(sup, inf), L = norma(d);
+    const s = mec.resolver(g), sup = s[p.anclajes[0]], inf = s[p.anclajes[1]], d = res(sup, inf), L = norma(d);
     // Brazo de palanca de la fuerza del pistón respecto al CIR (mm): con él se obtiene el par sobre la rodilla.
     const brazo = s.cir ? Math.abs(cruz(res(s.cir, inf), unit(d))) : 0;
     return { theta: g, sup, inf, L, brazo, sol: s };
@@ -23,7 +23,7 @@ export function estudioPiston(mec) {
   return {
     en, curva, Lmin, Lmax, carrera, area, fuerza, modelo,
     cabeRetraido: Lmin >= p.retraidoMin && Lmin <= p.retraidoMax,
-    cabeCanal: p.diametroExterior <= CONFIG.medidasReales.canalCentral,
+    cabeCanal: p.diametroExterior <= p.canalCentral,
     parMaxNm: Math.max(...curva.map((c) => (fuerza * c.brazo) / 1000)),
   };
 }

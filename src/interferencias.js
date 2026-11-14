@@ -27,11 +27,11 @@ export function revisarInterferencias(hasta = 135, tolerancia = 0.3) {
     const cuerpos = piezas.flatMap((pz) => pz.cuerpos.map((c) => {
       const e = ext(c), m = M[pz.cuerpo];
       const poli = (c.eje === 'z' ? c.contorno.map(([u, v]) => [u, v]) : [[e[0], c.a0], [e[1], c.a0], [e[1], c.a1], [e[0], c.a1]]).map((p) => sum(rot(p, m.ang), m.t));
-      return { nombre: pz.nombre, cuerpo: pz.cuerpo, poli, z: c.eje === 'z' ? [c.a0, c.a1] : [e[2], e[3]] };
+      return { nombre: pz.nombre, cuerpo: pz.cuerpo, conecta: pz.conecta || [pz.cuerpo], poli, z: c.eje === 'z' ? [c.a0, c.a1] : [e[2], e[3]] };
     }));
     for (let i = 0; i < cuerpos.length; i++) for (let j = i + 1; j < cuerpos.length; j++) {
       const a = cuerpos[i], b = cuerpos[j];
-      if (a.cuerpo === b.cuerpo || Math.min(a.z[1], b.z[1]) - Math.max(a.z[0], b.z[0]) <= 0.01) continue;
+      if (a.conecta.includes(b.cuerpo) || b.conecta.includes(a.cuerpo) || Math.min(a.z[1], b.z[1]) - Math.max(a.z[0], b.z[0]) <= 0.01) continue;
       const p = penetra(a.poli, b.poli);
       if (p > tolerancia) { const k = `${a.nombre} × ${b.nombre}`; (res[k] ||= { desde: g, hasta: g, max: 0 }); res[k].hasta = g; res[k].max = Math.max(res[k].max, p); }
     }

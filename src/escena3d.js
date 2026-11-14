@@ -130,22 +130,14 @@ export function crearEscena(contenedor) {
     mallas = {};
     for (const pz of M.piezas) {
       const g = new THREE.Group();
-      for (const cu of pz.cuerpos) g.add(new THREE.Mesh(geometriaCuerpo(cu), mats.aluminio()));
+      for (const cu of pz.cuerpos) g.add(new THREE.Mesh(geometriaCuerpo(cu), pz.material === 'acero' ? mats.acero.clone() : mats.aluminio()));
       g.userData.pieza = pz;
       marcos[pz.cuerpo].add(g);
       mallas[pz.id] = g;
     }
-    for (const e of M.ejes) {
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(e.d / 2, e.d / 2, e.largo, 20), mats.acero.clone());
-      m.rotation.x = Math.PI / 2;
-      m.position.set(e.centro[0], e.centro[1], 0);
-      marcos[e.cuerpo].add(m);
-      mallas[e.id] = m;
-    }
-    const tb = CONFIG.piezas.tuboReceptor, ba = CONFIG.piezas.base, dp = CONFIG.distal;
-    const yTubo = ba.yTope - ba.espesorPlaca - tb.largo;
+    const dp = CONFIG.distal, ens = M.ens;
     p.pilon = cil(dp.pilonDiametro / 2, dp.pilonDiametro / 2, mats.aluminio(), 24);
-    entre(p.pilon, new THREE.Vector3(CONFIG.mecanismo.ejePilonX, -M.Lps, 0), new THREE.Vector3(CONFIG.mecanismo.ejePilonX, yTubo + 25, 0));
+    entre(p.pilon, new THREE.Vector3(ens.ejePilonX, -M.Lps, 0), new THREE.Vector3(ens.ejePilonX, ens.yFondoCilindro, 0));
     marcos.pierna.add(p.pilon);
     // Pie SACH: perfil lateral extruido.
     const Lf = s.pie, h = dp.pieAlturaTobillo;
@@ -263,9 +255,7 @@ export function crearEscena(contenedor) {
     const centroPie = sum(P.tobS, rot([0.25 * s.pie, -s.alturaTobillo / 2], P.pitchS));
     c.pieS.position.copy(X(centroPie, zS)); c.pieS.rotation.set(0, 0, P.pitchS); c.pieS.scale.set(s.pie, s.alturaTobillo, 0.052 * s.estatura);
     // --- muñón y socket ---
-    const eje = CONFIG.mecanismo.ejePilonX, ad = CONFIG.piezas.adaptador;
-    const yAnillo = ad.yBase + ad.espesorPlaca + ad.anilloAlto;
-    const cadM = [M.ctx.e, s.muslo], pieSocket = [eje, yAnillo];
+    const cadM = [M.ctx.e, s.muslo], pieSocket = [M.ens.ejeSocketX, M.ens.yArribaAFS1]; // ranura del socket en el AFS1
     const dirS = unit(res(pieSocket, cadM));
     const largoSocket = Math.min(s.munon, norma(res(pieSocket, cadM)) - 30); // el socket no puede invadir la rodilla
     const finMunon = sum(cadM, esc(dirS, largoSocket));
@@ -290,24 +280,18 @@ export function crearEscena(contenedor) {
       const e = inst.cargas.esfuerzos[pz.id];
       g.children.forEach((m) => {
         if (ver.color === 'esfuerzo' && e && e.uso != null) { m.material.color.copy(colorEsfuerzo(e.uso)); m.material.metalness = 0.25; m.material.roughness = 0.6; }
-        else if (ver.color === 'material') { m.material.color.setRGB(...COLOR_MATERIAL[M.materialId].rgb); m.material.metalness = M.materialId === 'prototipo-3d' ? 0 : 0.5; m.material.roughness = 0.55; }
+        else if (ver.color === 'material') { m.material.color.setRGB(...COLOR_MATERIAL[pz.material === 'acero' ? 'acero' : M.materialId].rgb); m.material.metalness = M.materialId === 'prototipo-3d' ? 0 : 0.5; m.material.roughness = 0.55; }
+        else if (pz.material === 'acero') { m.material.color.set(0x70757d); m.material.metalness = 1; m.material.roughness = 0.3; }
         else if (M.materialId === 'prototipo-3d') { m.material.color.set(0xe9e4dc); m.material.metalness = 0; m.material.roughness = 0.8; }
         else { m.material.color.set(0xc9ccd1); m.material.metalness = 0.9; m.material.roughness = 0.34; }
       });
-    }
-    for (const e of M.ejes) {
-      const m = mallas[e.id], es = inst.cargas.esfuerzos[e.id];
-      m.scale.y = 1 + fd * 0.6;
-      if (ver.color === 'esfuerzo' && es) { m.material.color.copy(colorEsfuerzo(es.uso)); m.material.metalness = 0.25; }
-      else if (ver.color === 'material') { m.material.color.setRGB(...COLOR_MATERIAL.acero.rgb); m.material.metalness = 0.5; }
-      else { m.material.color.set(0x70757d); m.material.metalness = 1; }
     }
     const op = ver.transparente ? 0.16 : 1;
     for (const mt of [mats.piel, mats.socket]) { mt.transparent = op < 1; mt.opacity = op; mt.depthWrite = op >= 1; }
 
     // --- CIR, líneas de las barras, línea de carga y vectores ---
     const o = superpuestos.userData;
-    const zO = zLado + lado * (CONFIG.piezas.separacionC1 + CONFIG.piezas.barraLateral.espesor + 6);
+    const zO = zLado + lado * (CONFIG.geometria.afs1.ancho / 2 + CONFIG.geometria.eslabones.espesor + 6);
     const Wp = (q) => X(aMundo(P.mPierna, q), zO);
     const hayCir = !!inst.sol.cir;
     const colorEst = inst.cargado ? (inst.estable ? 0x1e7b4f : 0xc0271d) : 0x6b1e46;

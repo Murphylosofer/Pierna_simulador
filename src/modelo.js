@@ -9,7 +9,7 @@ import { rad, rot, sum, res, esc, aMundo, aLocal, dirLocal, norma } from './mat.
 
 export function crearModelo(usuario, materialId) {
   const seg = segmentos(usuario);
-  const { piezas, ejes, mec } = construirPiezas();
+  const { piezas, ejes, mec, ens } = construirPiezas();
   const mat = CONFIG.materiales[materialId];
   const K = CONFIG.nivelesK[usuario.nivelK];
   const e = CONFIG.diseno.desplazamientoPosteriorEjeMm;
@@ -97,7 +97,7 @@ export function crearModelo(usuario, materialId) {
   }
 
   return {
-    usuario, seg, piezas, ejes, mec, mat, materialId, K, ctx, peso, Lps,
+    usuario, seg, piezas, ejes, mec, ens, mat, materialId, K, ctx, peso, Lps,
     instante, ciclo, escenario,
     validacion: mec.validar(),
     centroda: mec.centroda(),

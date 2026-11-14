@@ -22,8 +22,8 @@ Al hacer push a la rama principal, `.github/workflows/pages.yml` compila y publi
 
 ## Cómo actualizar las medidas
 
-Cuando el equipo tenga las medidas reales de SolidWorks o los datos del plástico del prototipo,
-solo se edita `src/config.js` (`mecanismo`, `piezas`, `pernos`, `materiales`) y se quita `estimado: true`.
+La geometría de la rodilla ya es la del ensamble de SolidWorks del equipo (`src/config.js → geometria`), con tres
+correcciones documentadas para que funcione. Para cambiar una medida o el plástico del prototipo solo se edita `src/config.js`.
 La vista 3D, los cálculos, la figura isométrica y los planos se regeneran solos.
 
 `dist/index.html` es un único archivo autocontenido. La simulación no es una certificación:

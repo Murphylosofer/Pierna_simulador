@@ -206,12 +206,12 @@ function montarSimulacion() {
     ${dato('theta', 'Flexión de la rodilla', '°', 'Cuánto está doblada la rodilla. En 0° la pierna está recta; llegar a 135° permite sentarse y agacharse.', 'θ: giro del adaptador respecto a la base. Entrada de la ecuación de cierre de lazo.')}
     ${dato('grf', 'Reacción del suelo', 'N', 'La fuerza con la que el piso empuja a la prótesis. De pie es la mitad del peso; en un tropiezo puede triplicarlo.', '', '<div class="medidor"><i id="m-cap"></i></div><p class="ayuda num" id="t-cap"></p>', chipNorma('iso-10328', ''))}
     ${dato('torque', 'Torque en la rodilla', 'N·m', `El giro que la carga intenta darle a la rodilla. El diseño del equipo se calculó con un límite de ${fmt(d.torqueReferenciaNm, 1)} N·m.`, '', '<div class="medidor"><i id="m-torque"></i></div><p class="ayuda num" id="t-torque"></p>')}
-    ${dato('barras', 'Fuerza en las barras c1 / c2', 'N', 'Lo que carga cada par de barras laterales. Si es negativa, la barra trabaja a tracción.', '')}
-    ${dato('cortante', 'Cortante en los pernos', 'MPa', 'Los pernos trabajan como una tijera: es el esfuerzo que intenta cortarlos.', '')}
+    ${dato('barras', 'Fuerza en los eslabones exterior / interior', 'N', 'Lo que carga cada par de eslabones laterales. Si es negativa, el eslabón trabaja a tracción.', '')}
+    ${dato('cortante', 'Cortante en los ejes', 'MPa', 'Los ejes de Ø5 trabajan como una tijera: es el esfuerzo que intenta cortarlos.', '')}
     ${dato('sigma', 'Esfuerzo máximo', 'MPa', 'El esfuerzo en la pieza más exigida y qué tan cerca está de deformarse de forma permanente.', '', '<p class="ayuda" id="t-critica"></p>', chipNorma('astm-b221-b211'))}
     ${dato('fs', 'Factor de seguridad', '', `Cuántas veces más carga aguantaría antes de deformarse. El mínimo del diseño es ${fmt(d.factorSeguridad, 1)}.`, 'FS = esfuerzo de fluencia / esfuerzo máximo')}
     ${dato('cir', 'Centro instantáneo de rotación', 'mm', 'El punto sobre el que gira la rodilla en este instante. Si queda detrás de la línea de carga, el peso mismo mantiene la rodilla extendida.', '', '', chipNorma('radcliffe'))}
-    ${dato('masa', 'Peso de la rodilla', 'g', `Suma de las 12 piezas con el material elegido más los pernos. El prototipo del equipo pesa cerca de ${d.pesoRodillaG} g.`, 'm = Σ volumen × densidad (medidas estimadas)')}
+    ${dato('masa', 'Peso de la rodilla', 'g', `Suma de las piezas del ensamble de SolidWorks con el material elegido (ejes y tope de acero). Referencia del equipo: ${d.pesoRodillaG} g.`, 'm = Σ volumen × densidad (geometría real del STEP)')}
   `;
   for (const k of ['theta', 'grf', 'torque', 'barras', 'cortante', 'sigma', 'fs', 'cir', 'masa']) { refs[k] = $(`#v-${k}`); refs['f' + k] = $(`#f-${k}`); }
 
@@ -374,9 +374,9 @@ function pintarLecturas(inst) {
   $('#t-torque').textContent = `${fmt(pt * 100, 0)} % del límite de diseño de ${fmt(d.torqueReferenciaNm, 1)} N·m`;
   refs.ftorque.textContent = `M = R·d ; d = ${fmt(c.brazoRodilla, 1)} mm de la línea de carga al centro de rodilla. Respecto al CIR: ${fmt(inst.torqueCirNm, 1)} N·m.`;
   pon('barras', `${fmt(c.F1, 0)} / ${fmt(c.F2, 0)}`, 'N');
-  refs.fbarras.textContent = `F1·u1 + F2·u2 + Fs·n = R ; ΣM = 0. ${c.enTope ? `Tope de extensión: ${fmt(c.Fs, 0)} N.` : `Par de control necesario: ${fmt(c.Mc / 1000, 1)} N·m.`}`;
+  refs.fbarras.textContent = `F1·u1 + F2·u2 + Fs·n = R ; ΣM = 0. ${c.enTope ? `Tornillo de tope sobre la ceja: ${fmt(c.Fs, 0)} N.` : `Par de control necesario: ${fmt(c.Mc / 1000, 1)} N·m.`}`;
   pon('cortante', fmt(c.cortantePernoMax, 1), 'MPa');
-  refs.fcortante.textContent = `τ = F / (2·π·d²/4), perno de ${CONFIG.pernos.diametro} mm en cortante doble.`;
+  refs.fcortante.textContent = `τ = F / (2·π·d²/4), eje de Ø${CONFIG.geometria.ejes.diametro} mm en cortante doble.`;
   const pend = !mat.fluenciaMPa;
   pon('sigma', pend ? '—' : fmt(c.sigmaMax, 1), 'MPa');
   const critica = c.critica && ([...M.piezas, ...M.ejes].find((p) => p.id === c.critica));

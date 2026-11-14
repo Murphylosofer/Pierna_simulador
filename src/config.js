@@ -1,5 +1,5 @@
 // ÚNICA fuente de dimensiones de piezas, materiales y medidas del usuario (ver CLAUDE.md).
-// Toda medida no confirmada con SolidWorks lleva `estimado: true`.
+// Toda medida no confirmada con SolidWorks lleva `estimado: true`. La geometría de la rodilla ya es la real.
 // Unidades: mm, kg, N, MPa, grados — salvo que el nombre del campo diga otra cosa.
 
 export const CONFIG = {
@@ -21,8 +21,8 @@ export const CONFIG = {
     flexionMinGrados: 0,
     flexionMaxGrados: 135,
     desplazamientoPosteriorEjeMm: 20, // eje de la rodilla ~2 cm posterior a la línea media (TKA)
-    numeroPiezas: 12,
-    pesoRodillaG: 420,
+    numeroPiezas: 10, // ensamble real: AFS1, adaptador inferior, 4 eslabones y 4 ejes
+    pesoRodillaG: 420, // referencia del equipo
     toleranciaGeneralMm: 0.2,
     acabadoRaUm: 3.2,
     estaturaReferenciaM: 1.65,
@@ -79,22 +79,86 @@ export const CONFIG = {
     impacto: { valor: 'según nivel K (2.0–3.0)', fuente: 'Nilsson y Thorstensson (1989): 2–2.9 PC en carrera; se usa como cota de tropiezo.' },
   },
 
-  // Medidas REALES leídas de los planos de SolidWorks del equipo (Drive, carpeta "Rodilla medidas", 11-nov-2026).
-  // Solo se pudieron extraer las cotas en texto, no ver el dibujo: falta asignar cada cota a su forma
-  // y reconstruir las piezas. Hasta entonces la simulación sigue usando la geometría estimada de abajo.
-  medidasReales: {
+  // ───────────────────────── GEOMETRÍA REAL (SolidWorks) ─────────────────────────
+  // Fuente: ensamble "Ensamblaje2 (1).STEP" y planos DXF del equipo (14-nov-2026).
+  // Cada pieza se describe en SU PROPIO marco, igual que en su archivo de SolidWorks:
+  //   x hacia adelante (anterior), y hacia arriba, z lateral con 0 en el plano medio. mm.
+  // El código arma la rodilla resolviendo el mecanismo (src/ensamble.js); aquí no hay coordenadas inventadas.
+  geometria: {
+    fuente: 'SolidWorks 2018 · Ensamblaje2 (1).STEP + DXF de cada pieza',
     estimado: false,
-    pendienteDeAplicar: true,
-    ejeSuperior: { diametro: 5, largo: 55 }, // "Eje Superior"
-    ejeInferior: { diametro: 5, largo: 70 }, // "Eje inferior" (el cuadro de datos dice "Eslabon2")
-    afs1: { largo: 75, anchoExterior: 55, pared: 4, radioOreja: 10, barreno: 5, cotas: [77.14, 75.67, 10.51] }, // adaptador femoral superior
-    adaptadorFemoralInferior: { ladoBase: 75, claroInterior: 47, radioOreja: 10, barreno: 5, cilindroDiametro: 40, cilindroAlto: 40, cotas: [64.29] },
-    claroInterior: 47, // 55 − 2 × 4: ancho libre entre paredes de las horquillas
-    canalCentral: 31, // 47 − 2 × 8: lo que queda entre los eslabones para el pistón
+
+    // AFS1 — adaptador femoral superior. Horquilla en "U" invertida: placa arriba y dos paredes laterales.
+    afs1: {
+      nombreSW: 'AFS1',
+      ancho: 55, pared: 4, // claro interior 47
+      barrenoTrasero: [-55.182, 3.357], // eje B (lleva el Eje superior y los eslabones interiores)
+      barrenoDelantero: [-28.056, 8.357], // eje A (lleva el Eje inferior y los eslabones exteriores)
+      diametroBarreno: 5,
+      radioOreja: 10, // oreja trasera, concéntrica al eje B
+      // Perfil de la pared (vista lateral): arriba plano, abajo inclinado, frente casi vertical.
+      xAtras: -55.182, yArriba: 23.357, xFrenteArriba: 19.818,
+      frenteAbajo: [20.488, 8.357], // la arista inferior va de aquí a la parte baja de la oreja (75.67 × 15 → 77.14)
+      // Placa entre paredes: fondo inclinado y ranura anular arriba para el socket.
+      placa: { yFondoAtras: 13.0, yFondoFrente: 16.364 },
+      ranura: { centroX: -17.672, dExt: 44, dInt: 32, profundidad: 5 }, // receptáculo circular del socket
+    },
+
+    // Adaptador femoral inferior. Horquilla en "U": base abajo, dos paredes, ceja al frente y cilindro para el pilón.
+    adaptadorInferior: {
+      nombreSW: 'adapatador femoral inferior',
+      ancho: 55, pared: 4,
+      barrenoTrasero: [0, 3.355], // eje C (Eje superior, eslabones interiores)
+      barrenoDelantero: [46.792, 12.571], // eje D (Eje inferior, eslabones exteriores)
+      diametroBarreno: 5,
+      radioOreja: 10, // oreja delantera, concéntrica al eje D
+      xAtras: -18.208, xFrente: 56.792, yAbajo: -10.231, yArribaAtras: 9.769, // alturas 20.00 atrás y 22.80 adelante
+      base: { yArriba: -7.296 },
+      ceja: { espesor: 5, yArriba: 5.613 }, // labio frontal entre paredes
+      cilindro: { diametro: 40, largo: 40, centroX: 19.292 }, // macizo en el STEP; aquí se fija el pilón
+    },
+
+    // Barras laterales: estadio de 10 de ancho y 5 de espesor, barrenos Ø5 en los extremos.
+    eslabones: {
+      ancho: 10, espesor: 5, diametroBarreno: 5,
+      exterior: { nombreSW: 'eslabonnnnn', centros: 100, cantidad: 2 }, // por fuera de las paredes, ejes A–D
+      // CORRECCIÓN 1: en SolidWorks mide 65 entre centros. Con 65 el mecanismo no puede llegar a 0° (ver ensamble.js).
+      interior: { nombreSW: 'eslabon 2', centros: 100, centrosOriginal: 65, cantidad: 2 }, // por dentro, ejes B–C
+    },
+
+    // Ejes (pernos) Ø5. El "Eje superior" (55) une los eslabones interiores; el "Eje inferior" (70, archivo "Eslabon2")
+    // atraviesa paredes y eslabones exteriores.
+    ejes: {
+      diametro: 5,
+      superior: { nombreSW: 'Eje Superior', largo: 55 },
+      inferior: { nombreSW: 'Eslabon2', largo: 70, chaflan: 0.5 },
+      // Material supuesto: los planos no lo indican. Con Ø5, el aluminio no aguanta la flexión del perno.
+      material: 'Acero aleado clase 8.8', fluenciaMPa: 640, ultimaMPa: 800, densidadKgM3: 7850, ajuste: 'H7/g6',
+    },
+
+    // Correcciones aplicadas para que la rodilla funcione (cada una se explica en "Validación y supuestos").
+    correcciones: {
+      // 2: chaflán a 45° en la arista trasera inferior de la placa del AFS1; sin él el eslabón interior
+      //    choca con la placa a 129.6° de flexión. Con 5 mm la flexión libre llega a 139°.
+      chaflanPlacaAFS1: 5,
+      // 3: tope de extensión añadido (el diseño no tenía): tornillo M8 que baja por el centro de la placa del AFS1
+      //    y apoya, con un capuchón de hule, sobre la ceja delantera del adaptador inferior justo a 0°.
+      //    Al ser un contacto entre los dos cuerpos lejos del centro de rotación, la fuerza es baja.
+      tope: { rosca: 'M8', dTornillo: 8, areaResistente: 36.6, dHule: 10, altoHule: 5, xEnCeja: 55.8 }, // x en el marco del adaptador inferior
+    },
+
+    // Pose en la que quedó guardado el ensamble de SolidWorks: el adaptador inferior girado respecto al AFS1.
+    // Sirve para el diagnóstico del diseño original (no para la simulación).
+    poseSolidWorks: { giro: -47.708, t: [-46.014, -62.848] },
+
+    // Marco de referencia de la rodilla para la simulación, definido sobre el adaptador inferior:
+    // x = eje del pilón − 20 mm (el eje de rodilla queda 2 cm detrás de la línea de carga, como pide el equipo),
+    // y = 55 mm sobre el origen del adaptador inferior (mitad de la altura del mecanismo).
+    origenRodillaY: 55,
   },
 
-  // Pistón neumático propuesto (especificaciones_del_pistón.md). Los anclajes son una propuesta de esta
-  // simulación sobre la geometría estimada; se mueven aquí cuando se reconstruyan los adaptadores reales.
+  // Pistón neumático propuesto (especificaciones_del_pistón.md). Según el equipo, la horquilla del pistón va en el
+  // Eje superior y el otro extremo en el Eje inferior: en la rodilla real eso es la diagonal B (muslo) – D (pierna).
   piston: {
     estimado: true,
     tipo: 'Minicilindro neumático de doble efecto, ISO 6432',
@@ -102,60 +166,19 @@ export const CONFIG = {
     diametroExterior: 19, // camisa de 18 a 20 mm
     roscaVastago: 'M5 × 0.8',
     pasador: 5,
-    retraidoMin: 85, retraidoMax: 95, // longitud entre ojillos con el vástago recogido
-    modelos: [{ nombre: 'CDJ2B 16×25', carrera: 25 }, { nombre: 'CDJ2B 16×30', carrera: 30 }],
+    retraidoMin: 85, retraidoMax: 95, // lo que pedía el documento del equipo
+    modelos: [{ nombre: 'CDJ2B 16×25', carrera: 25 }, { nombre: 'CDJ2B 16×30', carrera: 30 }, { nombre: 'CDJ2B 16×40', carrera: 40 }],
     presionMPa: 0.6, // presión típica de taller (6 bar), supuesta
-    anclajeSuperior: [-26, 65], // en el cuerpo superior (muslo), junto al eje B
-    anclajeInferior: [-22, -50], // en la base, detrás del tubo receptor
+    anclajes: ['B', 'D'], // ejes del mecanismo donde se monta
+    canalCentral: 31, // 47 de claro − 2 × (5 de eslabón + 3 de holgura): espacio para la camisa
   },
 
-  // Mecanismo de 4 barras en el plano sagital, a 0° de flexión.
-  // Ejes: x anterior, y hacia arriba, origen = centro de referencia de la rodilla. mm.
-  mecanismo: {
-    estimado: true,
-    A: [0, 62], // eje superior delantero (adaptador ↔ c1)
-    B: [-28, 58], // eje superior trasero (adaptador ↔ c2)
-    C: [-28, 8], // eje inferior trasero (base ↔ c2)
-    D: [30, 0], // eje inferior delantero (base ↔ c1)
-    // Tope de extensión: punto de contacto sobre el cuerpo superior y dirección de la fuerza que recibe.
-    tope: { punto: [-40, 45], direccion: [1, 0] },
-    ejePilonX: 14, // eje del pilón y del receptáculo del socket: adelantado para que el socket no choque con las c2 al flexionar
-  },
-
-  pernos: {
-    estimado: true,
-    diametro: 10,
-    ajuste: 'H7/g6',
-    material: 'Acero aleado clase 8.8',
-    fluenciaMPa: 640,
-    ultimaMPa: 800,
-    densidadKgM3: 7850,
-  },
-
-  // Dimensiones de las 12 piezas maquinadas (mm). z = dirección lateral.
-  // El reparto en 12 piezas es una interpretación de la descripción del equipo.
-  piezas: {
-    estimado: true,
-    barraLateral: { ancho: 18, espesor: 6 }, // c1 y c2 (perfil tipo estadio entre ejes)
-    separacionC1: 20, // |z| de la cara interior de las barras c1
-    separacionC2: 10, // |z| de la cara interior de las barras c2
-    adaptador: { xMin: -38, xCorte: -12, xMax: 36, yBase: 76, espesorPlaca: 8, anchoZ: 39, anchoLengua: 19, // la lengua trasera es angosta para que las c2 pasen a los lados
-       anilloDext: 48, anilloDint: 38, anilloAlto: 16 },
-    barraSupDelantera: { medioAnchoX: 9, yInferior: 51 },
-    barraSupTrasera: { medioAnchoX: 9, yInferior: 47 },
-    barraTrasera: { largo: 12, alto: 8, posicion: 0.25, desfase: -13 }, // travesaño entre las dos c2; posicion = fracción de la barra desde el eje C, desfase = mm respecto a la línea de ejes (negativo = hacia el frente)
-    barraInfDelantera: { medioAnchoX: 9, ySuperior: 11 },
-    barraInfTrasera: { medioAnchoX: 9, ySuperior: 19, zInterior: 16.5, zExterior: 22 }, // horquilla: dos orejas por fuera de las c2
-    base: { xMin: -40, xMax: 42, yTope: -14, espesorPlaca: 8, anchoZ: 44 },
-    tuboReceptor: { dext: 38, dint: 30, largo: 35 },
-  },
-
-  // Componentes distales y socket (no forman parte de las 12 piezas).
+  // Componentes distales y socket (no son parte de la rodilla).
   distal: {
     estimado: true,
     pilonDiametro: 30,
     pieAlturaTobillo: 70, // del piso a la unión pilón–pie SACH
-    masaDistalKg: 1.1, // base + pilón + pie, para el torque en balanceo
+    masaDistalKg: 1.1, // adaptador inferior + pilón + pie, para el torque en balanceo
     socketEspesor: 5,
   },
 

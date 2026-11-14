@@ -14,6 +14,7 @@ const ln = (x1, y1, x2, y2, capa = 'visible') => ({ t: 'l', x1, y1, x2, y2, capa
 const pl = (pts, capa = 'visible', cerrada = true) => ({ t: 'p', pts, capa, cerrada });
 const ci = (cx, cy, r, capa = 'visible') => ({ t: 'c', cx, cy, r, capa });
 const tx = (x, y, s, alto = 2.5, ancla = 'start', capa = 'texto', negrita = false) => ({ t: 't', x, y, s: String(s), alto, ancla, capa, negrita });
+const partir = (texto, n) => { const out = []; let linea = ''; for (const w of texto.split(' ')) { if ((linea + ' ' + w).trim().length > n) { out.push(linea.trim()); linea = w; } else linea += ' ' + w; } if (linea.trim()) out.push(linea.trim()); return out; };
 const num = (v) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
 
 // ---------- geometría de vistas en mm de pieza (y hacia arriba) ----------
@@ -259,56 +260,73 @@ export function hojaPieza(pz, app, numero, total) {
     `1. Tolerancia general ±${d.toleranciaGeneralMm} mm. Ajuste de pernos: barreno H7, perno g6.`,
     `2. Acabado superficial Ra ${d.acabadoRaUm} µm en todas las caras maquinadas.`,
     '3. Romper filos 0.3 × 45°. Acotación según ASME Y14.5-2018.',
-    est ? '4. El rombo marca cotas ESTIMADAS, pendientes de las medidas reales de SolidWorks.' : '4. Cotas tomadas de SolidWorks.',
+    est ? '4. El rombo marca cotas ESTIMADAS, pendientes de las medidas reales de SolidWorks.' : `4. Cotas de SolidWorks (${pz.nombreSW || 'Ensamblaje2'}). Cantidad por rodilla: ${pz.cantidad}.`,
     '5. Plano de apoyo: el plano oficial para CNC se emite desde SolidWorks.',
-  ], 12, 170));
-  ents.push(...marco({ nombre: `${pz.item}. ${pz.nombre}`, material: nombreMaterial(app), escala, hoja: `${numero} de ${total}`, fecha: fechaHoy() }));
+    ...(pz.correccion ? partir('CORRECCIÓN: ' + pz.correccion, 95).map((l, i) => (i ? '   ' : '6. ') + l) : []),
+  ], 12, 167));
+  const materialPz = pz.id === 'tope' ? 'Acero 8.8 + hule' : pz.material === 'acero' ? CONFIG.geometria.ejes.material : nombreMaterial(app);
+  ents.push(...marco({ nombre: `${pz.item}. ${pz.nombre}`, material: materialPz, escala, hoja: `${numero} de ${total}`, fecha: fechaHoy() }));
   return { id: pz.id, titulo: `${pz.item}. ${pz.nombre}`, ents, pieza: pz, vistasDxf: { F: v.F, S: v.S, L: v.L, corte: corte?.ents || [], caja: b } };
 }
 
 // ---------- hoja de ensamble con lista de materiales ----------
 export function hojaEnsamble(app, total) {
-  const M = app.modelo, sol = M.mec.resolver(0), ents = [], est = CONFIG.piezas.estimado;
+  const M = app.modelo, sol = M.mec.resolver(0), ents = [], g = CONFIG.geometria, est = g.estimado;
   const marcos = { muslo: { ang: 0, t: [0, 0] }, pierna: { ang: 0, t: [0, 0] }, c1: { ang: sol.phi1, t: sol.D }, c2: { ang: sol.phi2, t: sol.C } };
-  const k = 0.75, ox = 78, oy = 96; // origen de la rodilla en la hoja
+  const k = 0.75, ox = 64, oy = 88; // centro de referencia de la rodilla en la hoja
   const P = (p, m) => { const q = sum(rot(p, m.ang), m.t); return [ox + q[0] * k, oy - q[1] * k]; };
   const centros = {};
-  for (const pz of M.piezas) {
+  // Vista lateral desde la derecha: se dibujan las piezas del lado derecho y las del centro.
+  for (const pz of M.piezas.filter((q) => !q.id.endsWith('Izq'))) {
     const m = marcos[pz.cuerpo];
     let sx = 0, sy = 0, n = 0;
     for (const c of pz.cuerpos) {
+      if (c.isla) continue;
       const e = ext(c);
       const poli = c.eje === 'z' ? c.contorno.map(([u, v]) => [u, v]) : [[e.u0, c.a0], [e.u1, c.a0], [e.u1, c.a1], [e.u0, c.a1]];
-      ents.push(pl(poli.map((p) => P(p, m))));
+      ents.push(pl(poli.map((p) => P(p, m)), pz.id.startsWith('perno') ? 'fina' : 'visible'));
       poli.forEach((p) => { const q = P(p, m); sx += q[0]; sy += q[1]; n++; });
       if (c.eje === 'z') for (const h of c.barrenos) { const q = P([h.u, h.v], m); ents.push(ci(q[0], q[1], (h.d / 2) * k), ...cruzEje(q[0], q[1], (h.d / 2) * k)); }
     }
     centros[pz.id] = [sx / n, sy / n];
   }
-  // globos: las piezas simétricas (izquierda/derecha) comparten posición en la vista lateral
-  const pos = { adaptador: [26, -62], supDelantera: [52, -40], supTrasera: [-52, -44], c1Der: [58, -14], c1Izq: [58, -2], c2Der: [-56, -22], c2Izq: [-56, -10], barraTrasera: [-56, 4], infDelantera: [58, 14], infTrasera: [-56, 18], base: [58, 28], tubo: [40, 50] };
-  for (const pz of M.piezas) {
-    const c = centros[pz.id], g = [ox + pos[pz.id][0] * 0.92, oy + pos[pz.id][1] * 0.92];
-    ents.push(ln(c[0], c[1], g[0], g[1], 'cota'), ci(c[0], c[1], 0.5, 'cotaRelleno'), ci(g[0], g[1], 3.4, 'cota'), tx(g[0], g[1] + 0.95, pz.item, 2.6, 'middle', 'cotaTexto', true));
+  // Globos: uno por pieza distinta, a la izquierda o a la derecha según dónde quede la pieza, sin encimarse.
+  const unicas = M.piezas.filter((q) => !q.igualA);
+  const lado = { izq: [], der: [] };
+  for (const pz of unicas) { const c = centros[pz.id]; (c[0] < ox + 18 ? lado.izq : lado.der).push({ pz, c }); }
+  for (const [nombre, lista] of Object.entries(lado)) {
+    lista.sort((p, q) => p.c[1] - q.c[1]);
+    let yPrev = -Infinity;
+    for (const { pz, c } of lista) {
+      const gy = Math.max(c[1], yPrev + 9), gx = nombre === 'izq' ? 24 : 128;
+      yPrev = gy;
+      ents.push(ln(c[0], c[1], gx + (nombre === 'izq' ? 3.4 : -3.4), gy, 'cota'), ci(c[0], c[1], 0.5, 'cotaRelleno'), ci(gx, gy, 3.4, 'cota'), tx(gx, gy + 0.95, pz.item, 2.6, 'middle', 'cotaTexto', true));
+    }
   }
   const b = cajaEnts(ents.filter((e) => e.capa === 'visible'));
-  ents.push(...cotaV(b.y0, b.y1, b.x0, b.x0 - 22, num((b.y1 - b.y0) / k), est));
-  ents.push(...cotaH(b.x0, b.x1, b.y1, b.y1 + 9, num((b.x1 - b.x0) / k), est));
-  ents.push(tx(ox - 45, b.y1 + 17, 'VISTA LATERAL DEL ENSAMBLE A 0° DE FLEXIÓN · ESCALA 3:4', 2, 'start'));
-  // lista de materiales
-  const x0 = 142, y0 = 14, anchos = [10, 62, 12, 63], alto = 5.6;
-  const filas = [['N.º', 'DESCRIPCIÓN', 'CANT.', 'MATERIAL'], ...M.piezas.map((p) => [p.item, p.nombre, 1, nombreMaterial(app)]),
-    ['13', `Perno Ø${CONFIG.pernos.diametro} ${CONFIG.pernos.ajuste} (ejes A, B, C, D)`, 4, CONFIG.pernos.material + ' (comercial)'],
-    ['14', 'Tornillo M6 de cabeza cilíndrica', 8, 'Acero clase 8.8 (comercial)'], ['15', 'Tornillo M5 del travesaño', 2, 'Acero clase 8.8 (comercial)']];
+  ents.push(...cotaV(b.y0, b.y1, b.x1, b.x1 + 14, num((b.y1 - b.y0) / k), est));
+  ents.push(...cotaH(b.x0, b.x1, b.y1, b.y1 + 8, num((b.x1 - b.x0) / k), est));
+  ents.push(tx(ox - 40, b.y1 + 16, 'VISTA LATERAL DERECHA A 0° DE FLEXIÓN · ESCALA 3:4', 2, 'start'));
+  // Lista de materiales
+  const x0 = 140, y0 = 14, anchos = [10, 70, 12, 55], alto = 5.6;
+  const mat = (pz) => (pz.id === 'tope' ? 'Acero 8.8 + capuchón de hule' : pz.material === 'acero' ? g.ejes.material : nombreMaterial(app));
+  const filas = [['N.º', 'DESCRIPCIÓN', 'CANT.', 'MATERIAL'],
+    ...unicas.map((p) => [p.item, `${p.nombre}${p.anadido ? ' (añadido)' : p.correccion ? ' (corregido)' : ''}`, p.cantidad, mat(p)]),
+    [unicas.length + 1, `Contratuerca ${g.correcciones.tope.rosca} para el tope`, 1, 'Acero (comercial)']];
   filas.forEach((f, i) => {
     let x = x0;
-    f.forEach((c, j) => { ents.push(tx(x + 1.5, y0 + i * alto + 3.9, c, 2.2, 'start', 'texto', i === 0)); x += anchos[j]; });
+    f.forEach((c, j) => { ents.push(tx(x + 1.5, y0 + i * alto + 3.9, c, 2.1, 'start', 'texto', i === 0)); x += anchos[j]; });
     ents.push(ln(x0, y0 + (i + 1) * alto, x0 + 147, y0 + (i + 1) * alto, 'fina'));
   });
   ents.push(rectE(x0, y0, x0 + 147, y0 + filas.length * alto, 'marco'));
   let x = x0; anchos.slice(0, 3).forEach((a) => { x += a; ents.push(ln(x, y0, x, y0 + filas.length * alto, 'fina')); });
-  ents.push(tx(x0, y0 + filas.length * alto + 5, `Masa calculada: ${M.masa ? fmt(M.masa.totalG, 0) + ' g' : 'pendiente'} (12 piezas + pernos). Referencia del equipo: ${CONFIG.diseno.pesoRodillaG} g.`, 2.1));
-  ents.push(...notas(['NOTAS:', '1. Piezas 4–5 y 6–7 son simétricas (derecha e izquierda).', '2. Rango de flexión 0° a 135°. Verificar holguras en SolidWorks.', est ? '3. Medidas ESTIMADAS, pendientes de SolidWorks.' : '3. Medidas de SolidWorks.', '4. Plano de apoyo: no sustituye al plano oficial.'], 12, 172));
+  const yN = y0 + filas.length * alto + 5;
+  ents.push(tx(x0, yN, `Masa calculada: ${M.masa ? fmt(M.masa.totalG, 0) + ' g' : 'pendiente'} con ${nombreMaterial(app)} (ejes y tope de acero). Referencia del equipo: ${CONFIG.diseno.pesoRodillaG} g.`, 2.1));
+  ents.push(...notas(['CORRECCIONES AL ENSAMBLE DE SOLIDWORKS:',
+    `a) Eslabón interior: ${g.eslabones.interior.centros} entre centros (era ${g.eslabones.interior.centrosOriginal}); con ${g.eslabones.interior.centrosOriginal} la rodilla no llega a 0°.`,
+    `b) AFS1: chaflán ${g.correcciones.chaflanPlacaAFS1} × 45° en la arista trasera inferior de la placa (libera la flexión hasta 139°).`,
+    `c) Tope de extensión ${g.correcciones.tope.rosca} añadido: apoya en la ceja del adaptador inferior a 0°.`], x0, yN + 6));
+  ents.push(...notas(['NOTAS:', '1. Las piezas 3 a 6 van en pares (derecha e izquierda).', '2. Los ejes necesitan retención axial (anillos o prisioneros), no definida en SolidWorks.', '3. Medidas de SolidWorks (Ensamblaje2). Flexión de 0° a 135°.', '4. Plano de apoyo: no sustituye al plano oficial.'], 12, 172));
   ents.push(...marco({ nombre: 'Ensamble de la rodilla', material: 'Ver lista de materiales', escala: '3:4', hoja: `1 de ${total}`, fecha: fechaHoy() }));
   return { id: 'ensamble', titulo: 'Ensamble y lista de materiales', ents };
 }
@@ -336,8 +354,8 @@ export function svgDeHoja(hoja, { independiente = false } = {}) {
 // ---------- pestaña ----------
 let hojas = [], actual = 0, raiz, app_;
 function generar() {
-  const M = app_.modelo, total = M.piezas.length + 1;
-  hojas = [hojaEnsamble(app_, total), ...M.piezas.map((p, i) => hojaPieza(p, app_, i + 2, total))];
+  const unicas = app_.modelo.piezas.filter((p) => !p.igualA), total = unicas.length + 1;
+  hojas = [hojaEnsamble(app_, total), ...unicas.map((p, i) => hojaPieza(p, app_, i + 2, total))];
 }
 function pintar() {
   if (!raiz) return;
@@ -375,7 +393,7 @@ export function montar(cont, app) {
         <div class="plano-acciones"><button type="button" class="boton chico" data-pz="1.4">Acercar</button><button type="button" class="boton chico" data-pz="0.714">Alejar</button><button type="button" class="boton chico" data-pz="0">Ajustar</button><span class="ayuda" style="align-self:center">Arrastra para mover la hoja; pellizca con dos dedos para acercar.</span></div>
         <div class="plano-acciones">
           <button type="button" class="boton primario" id="btn-pdf">PDF de esta hoja</button>
-          <button type="button" class="boton" id="btn-pdf-todo">PDF de las 13 hojas</button>
+          <button type="button" class="boton" id="btn-pdf-todo">PDF de todas las hojas</button>
           <button type="button" class="boton" id="btn-svg">SVG</button>
           <button type="button" class="boton" id="btn-dxf">DXF (vistas 1:1)</button>
           <button type="button" class="boton" id="btn-stl">STL de la pieza</button>

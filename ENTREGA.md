@@ -1,6 +1,6 @@
 # Entrega y traspaso
 
-Estado del simulador al 12 de noviembre de 2026, para continuar haciendo solo ajustes.
+Estado del simulador al 14 de noviembre de 2026, para continuar haciendo solo ajustes.
 Lee antes `CLAUDE.md` (reglas del repositorio) y `PROMPT.md` (especificación original).
 
 ## Cómo trabajar
@@ -24,9 +24,10 @@ Dirección: https://murphylosofer.github.io/Pierna_simulador/
 
 | Archivo | Qué contiene |
 |---|---|
-| `src/config.js` | **Única fuente** de medidas, materiales, usuario, pistón y medidas reales |
+| `src/config.js` | **Única fuente** de medidas, materiales, usuario y pistón. `geometria` = piezas reales de SolidWorks y correcciones |
+| `src/ensamble.js` | Arma la rodilla desde las piezas reales: resuelve el lazo a 0°, diagnostica el diseño original |
 | `src/normas.js` | Normas y referencias, con estado y si la edición está verificada |
-| `src/piezas.js` | Geometría de las 12 piezas (prismas) a partir de `config.js` |
+| `src/piezas.js` | Las 7 piezas distintas (10 cuerpos + tope) como prismas, en el marco de rodilla |
 | `src/cinematica.js` | Cierre de lazo del mecanismo y centro instantáneo de rotación |
 | `src/cargas.js` | Estática, esfuerzos, factor de seguridad y prueba ISO 10328 simulada |
 | `src/escenarios.js` | Los siete escenarios de movimiento |
@@ -42,75 +43,39 @@ Dirección: https://murphylosofer.github.io/Pierna_simulador/
 
 ## Lo que está hecho y verificado
 
-- Mecanismo resuelto de 0° a 135° sin trabarse y sin interferencias entre piezas.
-- Siete escenarios con cargas, torque, esfuerzos y factor de seguridad.
-- Materiales: 6061-T6, 7075-T6 y PLA impreso (supuesto), con comparación y equivalencias.
-- Figura isométrica con orden de dibujo por planos separadores; auditoría de líneas de la skill en 0.
-- Planos de las 12 piezas y del ensamble, con las cuatro exportaciones probadas.
-- Fórmulas con su fuente en la pestaña "Validación y supuestos".
+- **Geometría real de SolidWorks** (`Ensamblaje2 (1).STEP` + DXF, 14-nov-2026): AFS1, adaptador femoral inferior,
+  eslabones (exterior 100 y interior), Eje superior Ø5 × 55 y Eje inferior Ø5 × 70. Volúmenes dentro del 3 % del STEP.
+- **Diagnóstico del ensamble original**: con el eslabón interior de 65 mm el lazo no cierra a 0°; la flexión mínima
+  posible es 47.3° (la pose guardada en SolidWorks está en ese punto muerto). Se calcula en vivo en `ensamble.js`.
+- **Correcciones aplicadas** (en `config.js → geometria`):
+  1. Eslabón interior 65 → 100 mm (cuatro barras iguales).
+  2. Chaflán 5 × 45° en la arista trasera inferior de la placa del AFS1 (sin él choca a 129.6°; con él, libre hasta 139°).
+  3. Tope de extensión añadido: tornillo M8 que baja de la placa del AFS1 y apoya en la ceja del adaptador inferior.
+- Mecanismo sin trabarse ni interferencias de 0° a 135°; CIR a 0° alto (≈184 mm) y 96 mm detrás de la línea de carga.
+- Con 6061-T6 y 65 kg: FS mínimo 2.16 (bajar escalón, flexión del eje B de Ø5); pasa P3, P4 y P5 de ISO 10328.
+  Masa 463 g (420 g sin el tornillo de tope, igual a la referencia del equipo).
+- Planos de las 7 piezas distintas y del ensamble con lista de materiales; cada pieza corregida lleva su nota.
+- Caso a mano de pie: coincide con el modelo en reacción, torque, fuerza del tope, eslabones y cortante.
 
 ## Pendientes, en orden de importancia
 
-### 1. Reconstruir la geometría con las medidas reales (el más importante)
-
-Los planos de SolidWorks están en Drive, carpeta `Claude/Rodilla medidas`. Sus cotas ya están en
-`config.js → medidasReales`, pero **no se aplicaron**: de los PDF solo se pudo extraer el texto de las
-cotas, no ver el dibujo, así que no se sabe a qué forma corresponde cada una.
-
-Lo que sí se sabe:
-
-- El diseño real usa dos **horquillas en U** (AFS1 arriba y "adaptador femoral inferior" abajo) de 55 mm de
-  ancho exterior, paredes de 4 mm y claro interior de 47 mm, con orejas de radio 10 y barrenos de Ø5.
-- El adaptador inferior tiene un cilindro macizo de Ø40 × 40 mm y una base de 75 × 75 mm.
-- Los ejes son de **Ø5 mm**: superior de 55 mm de largo e inferior de 70 mm.
-- Los eslabones van **dentro** del claro de 47 mm.
-
-La geometría actual es otra: placas con bloques porta-eje macizos al centro y pernos de Ø10. Para
-aplicar lo real hace falta ver los cuatro PDF como imagen (pídele al usuario capturas o que los adjunte
-al chat) y además los planos de los eslabones, que no están en la carpeta. Con eso:
-
-1. Sustituir en `piezas.js` el adaptador, las barras superiores e inferiores y la base por las dos horquillas.
-2. Poner `mecanismo.A/B/C/D` con las posiciones reales de los barrenos.
-3. Cambiar `pernos.diametro` a 5 y quitar `estimado: true` de lo confirmado.
-4. Correr `node scripts/interferencias.mjs` y `npm run revisar`.
-
-**Aviso:** con el perno de Ø5 sobre la geometría estimada el factor de seguridad cae por debajo de 1
-(0.49 al caminar, 0.23 al bajar un escalón, con 65 kg y 6061-T6), porque la flexión del perno crece con
-1/d³. No es un resultado válido hasta tener los claros reales, pero conviene revisarlo con el equipo.
-
-### 2. Pistón neumático en 3D
-
-`src/piston.js` ya calcula la longitud entre ojillos de 0° a 135° y la compara con el documento del
-equipo (minicilindro Ø16, ojillos de Ø5, retraído 85–95 mm, carrera 25–30 mm). Con los anclajes
-propuestos en `config.js → piston` usa 25.9 mm de carrera: alcanza el CDJ2B 16×30, no el 16×25.
-
-No se dibuja en la vista 3D ni en la figura isométrica porque en la geometría estimada cruzaría la base
-y la barra superior trasera. Cuando las horquillas reales estén modeladas (pendiente 1), mover los
-anclajes a los ejes reales, añadirlo como pieza comercial a la lista de materiales y dibujarlo.
-
-### 3. Confirmar el plástico del prototipo
-
-`config.js → materiales['prototipo-3d']` supone PLA con 20 % de relleno a escala 1:1. Cambiar tipo,
-`rellenoPct`, `escala` y propiedades cuando el equipo lo confirme, y quitar `estimado: true`.
-
-### 4. Verificaciones que quedaron abiertas
-
-- Fuerzas y desplazamientos de ISO 10328 transcritos de literatura secundaria: cotejar con la norma.
-- Años de las normas con `verificada: false` en `normas.js`.
-- Citas de libros de texto de las fórmulas: son a la obra, no a la página.
-- El borrador ISO/DIS 10328:2025 no se pudo confirmar.
-
-### 5. Ajustes menores
-
-- La figura isométrica resuelve el orden por profundidad en 4 de 420 poses (a 135° con vista muy lateral).
-- El gesto de dos dedos se probó en emulación, no en un teléfono real.
-- El peso calculado (515 g con 6061) supera los 420 g del equipo; se corrige con las medidas reales.
-- Publicar en GitHub Pages: activar Settings → Pages → Source: GitHub Actions y llevar la rama a `main`.
+1. **Que el equipo confirme las correcciones** o proponga otras: el eslabón interior de 100 mm, el chaflán del AFS1
+   y el tornillo de tope. Si cambian, basta con editar `config.js → geometria` (por ejemplo, poner `centros: 65`
+   muestra en la app que la rodilla no se puede armar).
+2. **Retención axial de los ejes** (anillos E o prisioneros): no está en SolidWorks.
+3. **Material de los ejes**: se supuso acero 8.8; con Ø5 en aluminio no aguantan.
+4. **Pistón**: entre B y D necesita 34.7 mm de carrera (72–107 mm entre ojillos) y su longitud no cambia en un solo
+   sentido. No cabe en el CDJ2B 16×25/30 del documento; falta decidir otra ubicación. Aún no se dibuja en 3D.
+5. **Plástico del prototipo**: sigue el supuesto de PLA al 20 % y escala 1:1.
+6. **Verificaciones abiertas**: fuerzas de ISO 10328 de literatura secundaria, años de normas con `verificada: false`,
+   citas de libros a la obra y no a la página.
+7. El AFS1 reconstruido es 1.9 % más ligero que el STEP y el adaptador inferior 3.2 % (detalles menores no modelados).
 
 ## Decisiones ya tomadas por el usuario
 
 - El grupo es **5IV11**.
 - El torque de 274.2 N·m se presenta como **límite de diseño** del equipo (65 kg × 9.81 × 0.43 m).
 - La entrega es un solo `index.html` que sirve en GitHub Pages y como artifact.
+- La rodilla debe ser la del ensamble de SolidWorks del equipo, con los cambios mínimos para que funcione.
 - Los colores son guinda del IPN sobre fondo neutro; no cambiar a tema oscuro con verde.
 - No se genera código G.

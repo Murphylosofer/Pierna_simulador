@@ -11,7 +11,7 @@ import { rgbEsfuerzo, COLOR_MATERIAL, hex, mezclar } from './colores.js';
 import { rot, sum, res, esc, rad, fmt, aMundo } from './mat.js';
 
 const ANCHO = 660, ALTO = 560;
-const ZK = 150; // altura del centro de rodilla sobre el banco
+const ZK = 172; // altura del centro de referencia de la rodilla sobre el banco
 const BASE = { x: -100, y: -66, w: 215, d: 132, r: 8 };
 const BASE_H = 10, PIE_H = 5;
 const Y_ESCALA = -52; // la placa del transportador queda detrás del mecanismo
@@ -99,9 +99,9 @@ const esOscuro = () => (document.documentElement.dataset.theme ? document.docume
 function construir() {
   const { theta, azimut, elev, resaltada, color } = estado;
   const M = app_.modelo, mec = M.mec, sol = mec.resolver(theta);
-  const m = CONFIG.mecanismo, cfg = CONFIG.piezas, d = CONFIG.pernos.diametro, ex = m.ejePilonX;
+  const geo = CONFIG.geometria, ens = M.ens, d = geo.ejes.diametro, ex = ens.ejePilonX;
   const P = k.fitProjection(
-    [...k.boxCorners(BASE, -BASE_H - PIE_H, 0), [-R_ESCALA - 6, Y_ESCALA, ZK + 40], [20, Y_ESCALA, ZK + 40 + R_ESCALA + 8], [-30, 40, ZK + 132], [120, 0, ZK]],
+    [...k.boxCorners(BASE, -BASE_H - PIE_H, 0), [-R_ESCALA - 6, Y_ESCALA, ZK + 40], [20, Y_ESCALA, ZK + 40 + R_ESCALA + 8], [-30, 40, ZK + 118], [120, 0, ZK]],
     ANCHO, ALTO, { pad: 30, azimuth: azimut, elevation: elev });
   const cam = k.cameraOf(P), V = [cam.cosA * cam.cosE, cam.sinA * cam.cosE, cam.sinE];
   const at = (p) => k.iso(p, P);
@@ -154,8 +154,7 @@ function construir() {
   const fantasmaFondo = resaltada ? ' opacity="0.3"' : '';
 
   // ---------- columna: mordaza, pilón y perilla ----------
-  const ba = cfg.base, tb = cfg.tuboReceptor;
-  const yTubo0 = ba.yTope - ba.espesorPlaca - tb.largo; // en coordenadas de rodilla
+  const yTubo0 = ens.yFondoCilindro; // el pilón llega al fondo del cilindro Ø40 del adaptador inferior
   const mord = { x: ex - 26, y: -26, w: 52, d: 52, r: 5 };
   let col = S(k.slabOf(mord, 0, 22, P, 6, 0.9), { tone: 'mid' });
   col += L(k.planOutline(k.insetPlan(mord, 4), 22, P), { tone: 'faint' }) + L(k.sideSeam(mord, 11, P, 6), { tone: 'faint' });
@@ -166,7 +165,7 @@ function construir() {
   const per = [mord.x + mord.w + 7, 0];
   pon(rect(per[0] - 7, -ZK + 5, per[0] + 6, -ZK + 17), -6, 6, S(k.slabOf({ x: mord.x + mord.w, y: -2, w: 4, d: 4, r: 1 }, 9, 4, P, 2), { tone: 'mid', crease: 'none' }) + S(k.cylinder(per[0], per[1], 6, 5, 12, P, 28), { tone: 'mid' }) + L(k.knurl(per[0], per[1], 6, 5, 17, 30, P), { tone: 'lo' }));
 
-  // ---------- las 12 piezas, desde piezas.js ----------
+  // ---------- las piezas reales, desde piezas.js ----------
   const marcos = { muslo: sol.muslo, pierna: { ang: 0, t: [0, 0] }, c1: { ang: sol.phi1, t: sol.D }, c2: { ang: sol.phi2, t: sol.C } };
   for (const pieza of M.piezas) {
     const mar = marcos[pieza.cuerpo], fijo = pieza.cuerpo === 'pierna';
@@ -174,14 +173,25 @@ function construir() {
       const us = c.contorno.map((p) => p[0]), vs = c.contorno.map((p) => p[1]);
       const u0 = Math.min(...us), u1 = Math.max(...us), v0 = Math.min(...vs), v1 = Math.max(...vs);
       const base = pieza.cuerpo === 'c1' || pieza.cuerpo === 'c2' ? 'hi' : 'mid';
+      if (pieza.id.startsWith('perno')) {
+        // Ejes: solo se ven las puntas, que asoman por fuera de paredes y eslabones.
+        const cu = aMundo(mar, [(u0 + u1) / 2, (v0 + v1) / 2]), r = d / 2;
+        for (const sg of [-1, 1]) {
+          const F = G.frameOf([cu[0], 0, ZK + cu[1]], [0, sg, 0], [0, 0, 1], [sg, 0, 0]), z = sg > 0 ? c.a1 : -c.a0;
+          const svg = S(G.disc(z - 1.6, z, r, F, P), tono(pieza.id)) + k.dotsSvg([at([cu[0], sg * z, ZK + cu[1]])], { size: 0.5, tone: 'hi' });
+          pon(rect(cu[0] - r, cu[1] - r, cu[0] + r, cu[1] + r), sg > 0 ? z - 1.6 : -z, sg > 0 ? z : -z + 1.6, svg, { pieza: pieza.id, material: 'acero' });
+        }
+        continue;
+      }
       if (c.eje === 'z') {
         // prisma lateral: el contorno ya está en el plano sagital
         const paso = Math.max(1, Math.floor(c.contorno.length / 24));
         const poli = c.contorno.filter((_, i) => i % paso === 0).map(([u, v]) => aMundo(mar, [u, v]));
         // El travesaño cruza por delante y por detrás de otras piezas: se dibuja en tres tramos para que el orden sea exacto.
-        const cortes = pieza.id === 'barraTrasera' ? [c.a0, -cfg.separacionC2, cfg.separacionC2, c.a1] : [c.a0, c.a1];
-        for (let i = 0; i < cortes.length - 1; i++) pon(poli, cortes[i], cortes[i + 1], S(G.prismOf(FY(), poli.map(pz), cortes[i], cortes[i + 1], P), tono(pieza.id, base)), { pieza: pieza.id });
-      } else if (c.forma.tipo === 'circulo') {
+        pon(poli, c.a0, c.a1, S(G.prismOf(FY(), poli.map(pz), c.a0, c.a1, P), tono(pieza.id, base)), { pieza: pieza.id, material: pieza.material });
+      } else if (c.isla) {
+        continue; // la isla de la ranura queda al ras de la placa: la ranura se dibuja como dos círculos
+      } else if (c.forma.tipo === 'circulo' || c.forma.tipo === 'hex') {
         const cu = (u0 + u1) / 2, r = (u1 - u0) / 2, hueco = c.barrenos[0]?.d / 2 || 0;
         const poli = rect(cu - r, c.a0, cu + r, c.a1).map((p) => aMundo(mar, p));
         let svg;
@@ -190,7 +200,7 @@ function construir() {
           const arriba = rot([0, 1], mar.ang), F = G.frameAlong(W3(aMundo(mar, [cu, c.a0]), 0), [arriba[0], 0, arriba[1]]);
           svg = S(G.ringBand(0, c.a1 - c.a0, hueco, r, F, P), tono(pieza.id));
         }
-        pon(poli, -r, r, svg, { pieza: pieza.id });
+        pon(poli, -r, r, svg, { pieza: pieza.id, material: pieza.material });
       } else {
         // placa: caja con espesor a lo largo de la altura local
         const poli = rect(u0, c.a0, u1, c.a1).map((p) => aMundo(mar, p));
@@ -201,23 +211,14 @@ function construir() {
       }
     }
   }
-  // pernos: una cabeza a cada lado
-  for (const e of M.ejes) {
-    const c = aMundo(marcos[e.cuerpo], e.centro), r = d / 2 + 1.4, medio = e.largo / 2;
-    for (const sg of [-1, 1]) {
-      const F = G.frameOf([c[0], 0, ZK + c[1]], [0, sg, 0], [0, 0, 1], [sg, 0, 0]);
-      const svg = S(G.disc(medio - 2, medio, r, F, P), { tone: 'mid' }) + k.dotsSvg([at([c[0], sg * medio, ZK + c[1]])], { size: 0.6, tone: 'hi' });
-      pon(rect(c[0] - r, c[1] - r, c[0] + r, c[1] + r), sg > 0 ? medio - 2 : -medio, sg > 0 ? medio : -medio + 2, svg, { pieza: e.id, material: 'acero' });
-    }
-  }
-  // muñón de prueba dentro del receptáculo, con remate moleteado
+  // ranura anular del socket en la cara superior del AFS1 y muñón de prueba asentado en ella, con remate moleteado
   {
-    const ad = cfg.adaptador, yPl = ad.yBase + ad.espesorPlaca, rr = ad.anilloDint / 2 - 1.5;
-    const arriba = rot([0, 1], sol.muslo.ang), F = G.frameAlong(W3(aMundo(sol.muslo, [ex, yPl]), 0), [arriba[0], 0, arriba[1]]);
-    const s0 = ad.anilloAlto, s1 = 44;
-    let soc = S(G.disc(s0, s1, rr, F, P), { tone: 'lo' }) + L(G.arcOf(F, 30, rr, P), { tone: 'faint' });
-    pon(rect(ex - rr, yPl + s0, ex + rr, yPl + s1).map((p) => aMundo(sol.muslo, p)), -rr, rr, soc);
-    pon(rect(ex - rr - 3, yPl + s1, ex + rr + 3, yPl + s1 + 5).map((p) => aMundo(sol.muslo, p)), -rr - 3, rr + 3, S(G.disc(s1, s1 + 5, rr + 3, F, P), { tone: 'mid' }) + L(G.ribsOf(F, s1, s1 + 5, rr + 3, 40, P, { seams: true }), { tone: 'lo' }));
+    const ra = geo.afs1.ranura, yTop = ens.yArribaAFS1, cx = ens.ejeSocketX;
+    const arriba = rot([0, 1], sol.muslo.ang), F = G.frameAlong(W3(aMundo(sol.muslo, [cx, yTop]), 0), [arriba[0], 0, arriba[1]]);
+    const rr = ra.dExt / 2 - 1, s1 = 40;
+    let soc = L(G.circleOf(F, 0, ra.dExt / 2, P), { tone: 'lo' }) + S(G.disc(0, s1, rr, F, P), { tone: 'lo' }) + L(G.arcOf(F, 26, rr, P), { tone: 'faint' });
+    pon(rect(cx - rr, yTop, cx + rr, yTop + s1).map((p) => aMundo(sol.muslo, p)), -rr, rr, soc);
+    pon(rect(cx - rr - 3, yTop + s1, cx + rr + 3, yTop + s1 + 5).map((p) => aMundo(sol.muslo, p)), -rr - 3, rr + 3, S(G.disc(s1, s1 + 5, rr + 3, F, P), { tone: 'mid' }) + L(G.ribsOf(F, s1, s1 + 5, rr + 3, 40, P, { seams: true }), { tone: 'lo' }));
   }
 
   // ---------- transportador de 0° a 135° (placa fija detrás) ----------
@@ -249,7 +250,7 @@ function construir() {
   }
 
   // ---------- línea de carga (varilla) ----------
-  const yF = cfg.barraInfTrasera.zExterior + 12;
+  const yF = geo.afs1.ancho / 2 + geo.eslabones.espesor + 12;
   pon(rect(xCarga - 4.2, -ZK, xCarga + 4.2, 153), yF - 4.2, yF + 4.2, S(k.cylinder(xCarga, yF, 4.2, 0, 3, P, 20), { tone: 'mid' }) + S(k.cylinder(xCarga, yF, 1.3, 3, ZK + 150, P, 12), { tone: 'mid', crease: 'none' }) + k.dotsSvg([at([xCarga, yF, ZK + 153])], { size: 1, tone: 'hi' }));
 
   // ---------- CIR y barras prolongadas (siempre encima) ----------
