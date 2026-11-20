@@ -265,10 +265,13 @@ export function crearEscena(contenedor) {
       const h0 = sum(hombro, rot([0, -30], -tr));
       const codo = sum(h0, [s.brazo * Math.sin(a), -s.brazo * Math.cos(a)]);
       const mano = sum(codo, [s.antebrazo * Math.sin(a + 0.25), -s.antebrazo * Math.cos(a + 0.25)]);
-      entre(c[n], X(codo, sg * zh), X(h0, sg * zh));
-      entre(c[n + '2'], X(mano, sg * zh), X(codo, sg * zh));
+      // Brazos un poco abiertos: codo y mano pasan por fuera del socket y de la rodilla (no la atraviesan al sentarse).
+      const zFuera = Math.abs(zLado) + 88 * k + 12;
+      const zCodo = Math.max(zh, zFuera + 33 * k), zMano = Math.max(zh, zFuera + 34 * k);
+      entre(c[n], X(codo, sg * zCodo), X(h0, sg * zh));
+      entre(c[n + '2'], X(mano, sg * zMano), X(codo, sg * zCodo));
       c[n + 'h'].position.copy(X(h0, sg * zh));
-      c[n + 'm'].position.copy(X(mano, sg * zh));
+      c[n + 'm'].position.copy(X(mano, sg * zMano));
     });
     // --- pierna sana ---
     entre(c.musloS, X(P.rodS, zS), X(cad, zS));
