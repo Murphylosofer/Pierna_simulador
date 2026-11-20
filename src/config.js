@@ -182,6 +182,16 @@ export const CONFIG = {
     origenRodillaY: 55,
   },
 
+  // Planos oficiales del equipo, exportados de SolidWorks (carpeta "ESTUDIOS y STL/PDF"). Se muestran en la pestaña Planos.
+  planosSolidWorks: [
+    { archivo: 'AFS1', titulo: 'AFS1 · adaptador femoral superior' },
+    { archivo: 'Adaptador femoral inferior', titulo: 'Adaptador femoral inferior' },
+    { archivo: 'eslabon', titulo: 'Eslabón (80 entre centros)' },
+    { archivo: 'Eje Superior', titulo: 'Eje superior Ø5 × 55' },
+    { archivo: 'Eje inferior', titulo: 'Eje inferior Ø5 × 70' },
+    { archivo: 'Eslabon2', titulo: 'Eslabon2 · eje Ø5 × 70' },
+  ],
+
   // Estudios estáticos de SolidWorks Simulation del equipo (reportes PDF y capturas en "ESTUDIOS y STL").
   // Son resultados reales; la simulación de la página solo los interpola.
   solidworks: {

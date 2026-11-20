@@ -3,6 +3,7 @@
 // Planos de apoyo: los oficiales para el CNC salen de SolidWorks. Aquí no se genera código G.
 import { CONFIG } from './config.js';
 import { rot, sum, fmt } from './mat.js';
+import { planoSolidWorks } from './recursos.js';
 import { geometriaCuerpo } from './escena3d.js';
 import { descargar, pdfDeHojas, dxfDe, stlDe } from './exportar.js';
 
@@ -354,18 +355,26 @@ export function svgDeHoja(hoja, { independiente = false } = {}) {
 
 // ---------- pestaña ----------
 let hojas = [], actual = 0, raiz, app_;
+const hojasSW = () => CONFIG.planosSolidWorks.map((p) => ({ sw: true, titulo: p.titulo, archivo: p.archivo, ...planoSolidWorks(p.archivo) }));
 function generar() {
   const unicas = app_.modelo.piezas.filter((p) => !p.igualA), total = unicas.length + 1;
-  hojas = [hojaEnsamble(app_, total), ...unicas.map((p, i) => hojaPieza(p, app_, i + 2, total))];
+  hojas = [...hojasSW(), hojaEnsamble(app_, total), ...unicas.map((p, i) => hojaPieza(p, app_, i + 2, total))];
 }
 function pintar() {
   if (!raiz) return;
   generar();
-  raiz.querySelector('#plano-lista').innerHTML = hojas.map((h, i) => `<button type="button" data-hoja="${i}" aria-pressed="${i === actual}">${h.titulo}</button>`).join('');
+  const nSW = hojas.filter((h) => h.sw).length, boton = (h, i) => `<button type="button" data-hoja="${i}" aria-pressed="${i === actual}">${h.titulo}</button>`;
+  raiz.querySelector('#plano-lista').innerHTML = `<h3 class="plano-grupo">Planos de SolidWorks (del equipo)</h3>${hojas.slice(0, nSW).map(boton).join('')}
+    <h3 class="plano-grupo">Planos de la simulación</h3>${hojas.slice(nSW).map((h, i) => boton(h, i + nSW)).join('')}`;
   raiz.querySelectorAll('[data-hoja]').forEach((b) => b.addEventListener('click', () => { actual = +b.dataset.hoja; pintar(); }));
-  raiz.querySelector('#plano-hoja').innerHTML = svgDeHoja(hojas[actual]);
-  raiz.querySelector('#btn-stl').disabled = !hojas[actual].pieza;
-  raiz.querySelector('#btn-dxf').disabled = !hojas[actual].pieza;
+  const h = hojas[actual];
+  raiz.querySelector('#plano-hoja').innerHTML = h.sw
+    ? `<img class="plano-sw" src="${h.vista}" alt="Plano de SolidWorks: ${h.titulo}" width="1191" height="842">`
+    : svgDeHoja(h);
+  raiz.querySelector('#plano-nota-sw').hidden = !h.sw;
+  raiz.querySelector('#btn-pdf').textContent = h.sw ? 'PDF original de SolidWorks' : 'PDF de esta hoja';
+  raiz.querySelector('#btn-pdf-todo').textContent = 'PDF de los planos de la simulación';
+  for (const id of ['#btn-svg', '#btn-dxf', '#btn-stl']) raiz.querySelector(id).disabled = h.sw || (id !== '#btn-svg' && !h.pieza);
 }
 const slug = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
@@ -380,17 +389,20 @@ export function montar(cont, app) {
       #plano-lista button[aria-pressed=true]{background:var(--guinda-suave);border-color:var(--guinda);color:var(--guinda)}
       .plano-marco{overflow:auto;max-height:82vh;border:1px solid var(--linea);border-radius:var(--radio);background:var(--papel);touch-action:pan-x pan-y}
       #plano-hoja{width:var(--zoom,100%);min-width:760px}
-      #plano-hoja svg{display:block;width:100%;height:auto}
+      #plano-hoja svg,#plano-hoja .plano-sw{display:block;width:100%;height:auto}
+      .plano-sw{background:#fff}
+      .plano-grupo{font-size:.85rem;color:var(--tenue);font-weight:600;margin:6px 2px 0;grid-column:1/-1}
       .plano-acciones{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
       @media(max-width:900px){.planos{grid-template-columns:minmax(0,1fr)}#plano-lista{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
     </style>
-    <h2 class="seccion-titulo">Planos paramétricos</h2>
-    <p class="seccion-intro">Se generan con las mismas dimensiones que usa la simulación: si cambian las medidas en la configuración, los planos se actualizan solos. Proyección de tercer ángulo y acotación según ASME Y14.5.</p>
-    <div class="aviso cuidado" style="margin-bottom:16px"><span><strong>Planos de apoyo.</strong> Los planos oficiales para el CNC salen de SolidWorks; aquí no se genera código G. Las cotas con rombo <strong>◇</strong> son estimadas hasta que el equipo pase las medidas reales.</span></div>
+    <h2 class="seccion-titulo">Planos</h2>
+    <p class="seccion-intro">Primero están los planos del equipo, exportados de SolidWorks: se pueden ver aquí y descargar en su PDF original. Después, los planos que genera la simulación con sus mismas medidas: ensamble, lista de materiales y una hoja por pieza.</p>
+    <div class="aviso cuidado" style="margin-bottom:16px"><span><strong>Para fabricar se usan los planos de SolidWorks</strong> (primer grupo de la lista). Los de la simulación son de apoyo; aquí no se genera código G. Las cotas con rombo <strong>◇</strong> son estimadas.</span></div>
     <div class="planos">
       <nav class="panel" id="plano-lista" aria-label="Hojas"></nav>
       <div>
         <div class="plano-marco"><div id="plano-hoja"></div></div>
+        <p class="ayuda" id="plano-nota-sw" hidden style="margin-top:8px">Plano de SolidWorks tal como lo entregó el equipo (pieza original). ${CONFIG.geometria.recortes.activos ? 'Los ajustes de la simulación (ranuras del AFS1, tope escondido y ejes cortos en B) están en las hojas de la simulación.' : ''}</p>
         <div class="plano-acciones"><button type="button" class="boton chico" data-pz="1.4">Acercar</button><button type="button" class="boton chico" data-pz="0.714">Alejar</button><button type="button" class="boton chico" data-pz="0">Ajustar</button><span class="ayuda" style="align-self:center">Arrastra para mover la hoja; pellizca con dos dedos para acercar.</span></div>
         <div class="plano-acciones">
           <button type="button" class="boton primario" id="btn-pdf">PDF de esta hoja</button>
@@ -407,8 +419,13 @@ export function montar(cont, app) {
     const final = await descargar(nombre, datos, tipo);
     cont.querySelector('#plano-msj').textContent = final ? `Archivo listo: ${final}.` : `No se guardó ${nombre}. Si cancelaste, vuelve a intentarlo; si esta vista no permite descargas, usa la página publicada en GitHub Pages.`;
   };
-  cont.querySelector('#btn-pdf').addEventListener('click', () => baja(`plano-${slug(hojas[actual].titulo)}.pdf`, pdfDeHojas([hojas[actual]], HOJA), 'application/pdf'));
-  cont.querySelector('#btn-pdf-todo').addEventListener('click', () => baja('planos-rodilla-4-barras.pdf', pdfDeHojas(hojas, HOJA), 'application/pdf'));
+  const bytesDe = (url) => { const b = atob(url.slice(url.indexOf(',') + 1)), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+  cont.querySelector('#btn-pdf').addEventListener('click', () => {
+    const h = hojas[actual];
+    if (h.sw) baja(`${h.archivo}.pdf`, bytesDe(h.pdf), 'application/pdf');
+    else baja(`plano-${slug(h.titulo)}.pdf`, pdfDeHojas([h], HOJA), 'application/pdf');
+  });
+  cont.querySelector('#btn-pdf-todo').addEventListener('click', () => baja('planos-rodilla-4-barras.pdf', pdfDeHojas(hojas.filter((h) => !h.sw), HOJA), 'application/pdf'));
   cont.querySelector('#btn-svg').addEventListener('click', () => baja(`plano-${slug(hojas[actual].titulo)}.svg`, svgDeHoja(hojas[actual], { independiente: true }), 'image/svg+xml'));
   cont.querySelector('#btn-dxf').addEventListener('click', () => { const h = hojas[actual]; if (h.pieza) baja(`${slug(h.titulo)}.dxf`, dxfDe(h.vistasDxf), 'application/dxf'); });
   cont.querySelector('#btn-stl').addEventListener('click', () => { const h = hojas[actual]; if (h.pieza) baja(`${slug(h.titulo)}.stl`, stlDe(h.pieza.cuerpos.map(geometriaCuerpo)), 'model/stl'); });

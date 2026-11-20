@@ -14,3 +14,11 @@ export function bytesSTL(archivo) {
   return u8.buffer;
 }
 export const imagenEstudio = (ruta) => JPG[ruta] || '';
+
+// Planos oficiales de SolidWorks: PDF originales (para descargar) y su vista SVG (generada con scripts/vistas_pdf.sh).
+const pdf = import.meta.glob('../ESTUDIOS y STL/PDF/*.pdf', { query: '?inline', import: 'default', eager: true });
+const svgSW = import.meta.glob('./planosSW/*.svg', { query: '?inline', import: 'default', eager: true });
+const base = (k) => k.split('/').pop().replace(/\.(pdf|svg)$/i, '');
+const PDF = Object.fromEntries(Object.entries(pdf).map(([k, v]) => [base(k), v]));
+const SVG_SW = Object.fromEntries(Object.entries(svgSW).map(([k, v]) => [base(k), v]));
+export const planoSolidWorks = (nombre) => ({ pdf: PDF[nombre] || '', vista: SVG_SW[nombre] || '' });
