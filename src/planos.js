@@ -358,14 +358,14 @@ let hojas = [], actual = 0, raiz, app_;
 const hojasSW = () => CONFIG.planosSolidWorks.map((p) => ({ sw: true, titulo: p.titulo, archivo: p.archivo, ...planoSolidWorks(p.archivo) }));
 function generar() {
   const unicas = app_.modelo.piezas.filter((p) => !p.igualA), total = unicas.length + 1;
-  hojas = [...hojasSW(), hojaEnsamble(app_, total), ...unicas.map((p, i) => hojaPieza(p, app_, i + 2, total))];
+  hojas = [...hojasSW(), ...(CONFIG.mostrarPlanosSimulacion ? [hojaEnsamble(app_, total), ...unicas.map((p, i) => hojaPieza(p, app_, i + 2, total))] : [])];
 }
 function pintar() {
   if (!raiz) return;
   generar();
   const nSW = hojas.filter((h) => h.sw).length, boton = (h, i) => `<button type="button" data-hoja="${i}" aria-pressed="${i === actual}">${h.titulo}</button>`;
   raiz.querySelector('#plano-lista').innerHTML = `<h3 class="plano-grupo">Planos de SolidWorks (del equipo)</h3>${hojas.slice(0, nSW).map(boton).join('')}
-    <h3 class="plano-grupo">Planos de la simulación</h3>${hojas.slice(nSW).map((h, i) => boton(h, i + nSW)).join('')}`;
+    ${hojas.length > nSW ? `<h3 class="plano-grupo">Planos de la simulación</h3>${hojas.slice(nSW).map((h, i) => boton(h, i + nSW)).join('')}` : ''}`;
   raiz.querySelectorAll('[data-hoja]').forEach((b) => b.addEventListener('click', () => { actual = +b.dataset.hoja; pintar(); }));
   const h = hojas[actual];
   raiz.querySelector('#plano-hoja').innerHTML = h.sw
@@ -373,8 +373,8 @@ function pintar() {
     : svgDeHoja(h);
   raiz.querySelector('#plano-nota-sw').hidden = !h.sw;
   raiz.querySelector('#btn-pdf').textContent = h.sw ? 'PDF original de SolidWorks' : 'PDF de esta hoja';
-  raiz.querySelector('#btn-pdf-todo').textContent = 'PDF de los planos de la simulación';
-  for (const id of ['#btn-svg', '#btn-dxf', '#btn-stl']) raiz.querySelector(id).disabled = h.sw || (id !== '#btn-svg' && !h.pieza);
+    for (const id of ['#btn-svg', '#btn-dxf', '#btn-stl']) raiz.querySelector(id).disabled = h.sw || (id !== '#btn-svg' && !h.pieza);
+  raiz.querySelectorAll('.solo-sim').forEach((e) => (e.hidden = !CONFIG.mostrarPlanosSimulacion));
 }
 const slug = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
@@ -396,23 +396,22 @@ export function montar(cont, app) {
       @media(max-width:900px){.planos{grid-template-columns:minmax(0,1fr)}#plano-lista{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
     </style>
     <h2 class="seccion-titulo">Planos</h2>
-    <p class="seccion-intro">Primero están los planos del equipo, exportados de SolidWorks: se pueden ver aquí y descargar en su PDF original. Después, los planos que genera la simulación con sus mismas medidas: ensamble, lista de materiales y una hoja por pieza.</p>
-    <div class="aviso cuidado" style="margin-bottom:16px"><span><strong>Para fabricar se usan los planos de SolidWorks</strong> (primer grupo de la lista). Los de la simulación son de apoyo; aquí no se genera código G. Las cotas con rombo <strong>◇</strong> son estimadas.</span></div>
+    <p class="seccion-intro">Planos de las piezas de la rodilla, hechos por el equipo en SolidWorks. Se pueden ver aquí, acercar y descargar en su PDF original.</p>
     <div class="planos">
       <nav class="panel" id="plano-lista" aria-label="Hojas"></nav>
       <div>
         <div class="plano-marco"><div id="plano-hoja"></div></div>
-        <p class="ayuda" id="plano-nota-sw" hidden style="margin-top:8px">Plano de SolidWorks tal como lo entregó el equipo (pieza original). ${CONFIG.geometria.recortes.activos ? 'Los ajustes de la simulación (ranuras del AFS1, tope escondido y ejes cortos en B) están en las hojas de la simulación.' : ''}</p>
+        <p class="ayuda" id="plano-nota-sw" hidden style="margin-top:8px">Plano de SolidWorks tal como lo entregó el equipo.</p>
         <div class="plano-acciones"><button type="button" class="boton chico" data-pz="1.4">Acercar</button><button type="button" class="boton chico" data-pz="0.714">Alejar</button><button type="button" class="boton chico" data-pz="0">Ajustar</button><span class="ayuda" style="align-self:center">Arrastra para mover la hoja; pellizca con dos dedos para acercar.</span></div>
         <div class="plano-acciones">
           <button type="button" class="boton primario" id="btn-pdf">PDF de esta hoja</button>
-          <button type="button" class="boton" id="btn-pdf-todo">PDF de todas las hojas</button>
-          <button type="button" class="boton" id="btn-svg">SVG</button>
-          <button type="button" class="boton" id="btn-dxf">DXF (vistas 1:1)</button>
-          <button type="button" class="boton" id="btn-stl">STL de la pieza</button>
+          <button type="button" class="boton solo-sim" id="btn-pdf-todo">PDF de todas las hojas</button>
+          <button type="button" class="boton solo-sim" id="btn-svg">SVG</button>
+          <button type="button" class="boton solo-sim" id="btn-dxf">DXF (vistas 1:1)</button>
+          <button type="button" class="boton solo-sim" id="btn-stl">STL de la pieza</button>
         </div>
-        <p class="ayuda" id="plano-msj">El DXF contiene las vistas a escala 1:1 en mm para usarlas como base 2D en SolidWorks o AutoCAD. El STL sirve para imprimir la pieza en 3D.</p>
-        <div class="chips" style="margin-top:8px">${app.chipNorma('asme-y14-5')}${app.chipNorma('astm-b221-b211')}</div>
+        <p class="ayuda" id="plano-msj"></p>
+        <div class="chips" style="margin-top:8px">${app.chipNorma('asme-y14-5')}</div>
       </div>
     </div>`;
   const baja = async (nombre, datos, tipo) => {

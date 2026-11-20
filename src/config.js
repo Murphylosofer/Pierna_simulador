@@ -183,6 +183,7 @@ export const CONFIG = {
   },
 
   // Planos oficiales del equipo, exportados de SolidWorks (carpeta "ESTUDIOS y STL/PDF"). Se muestran en la pestaña Planos.
+  mostrarPlanosSimulacion: false, // true vuelve a mostrar los planos que genera la simulación
   planosSolidWorks: [
     { archivo: 'AFS1', titulo: 'AFS1 · adaptador femoral superior' },
     { archivo: 'Adaptador femoral inferior', titulo: 'Adaptador femoral inferior' },
