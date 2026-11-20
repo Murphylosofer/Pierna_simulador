@@ -2,7 +2,7 @@
 // Calcula la longitud entre ojillos en todo el rango de flexión y la compara con el minicilindro elegido.
 // Según el documento, la horquilla del pistón va en el Eje superior y el otro ojillo en el Eje inferior:
 // en la rodilla real eso es la diagonal B (AFS1, eje superior) – D (adaptador inferior, eje inferior),
-// dentro del canal de 47 mm entre los eslabones interiores.
+// dentro del canal entre los eslabones diagonales (por dentro de las paredes).
 import { CONFIG } from './config.js';
 import { aMundo, res, norma, cruz, unit, fmt } from './mat.js';
 

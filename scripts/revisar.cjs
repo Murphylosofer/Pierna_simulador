@@ -5,7 +5,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 
 const URL = 'http://localhost:4173/';
-const PESTANAS = process.argv.slice(2).length ? process.argv.slice(2) : ['simulacion', 'mecanismo', 'diagramas', 'planos', 'normas', 'supuestos'];
+const PESTANAS = process.argv.slice(2).length ? process.argv.slice(2) : ['simulacion', 'mecanismo', 'diagramas', 'planos', 'solidworks', 'normas', 'supuestos'];
 const VISTAS = [
   { nombre: 'pc', width: 1440, height: 900 },
   { nombre: 'telefono', width: 390, height: 844, isMobile: true, hasTouch: true },

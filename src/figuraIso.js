@@ -179,7 +179,7 @@ function construir() {
         for (const sg of [-1, 1]) {
           const F = G.frameOf([cu[0], 0, ZK + cu[1]], [0, sg, 0], [0, 0, 1], [sg, 0, 0]), z = sg > 0 ? c.a1 : -c.a0;
           const svg = S(G.disc(z - 1.6, z, r, F, P), tono(pieza.id)) + k.dotsSvg([at([cu[0], sg * z, ZK + cu[1]])], { size: 0.5, tone: 'hi' });
-          pon(rect(cu[0] - r, cu[1] - r, cu[0] + r, cu[1] + r), sg > 0 ? z - 1.6 : -z, sg > 0 ? z : -z + 1.6, svg, { pieza: pieza.id, material: 'acero' });
+          pon(rect(cu[0] - r, cu[1] - r, cu[0] + r, cu[1] + r), sg > 0 ? z - 1.6 : -z, sg > 0 ? z : -z + 1.6, svg, { pieza: pieza.id, material: M.materialId });
         }
         continue;
       }
@@ -289,8 +289,8 @@ function pintar() {
     ley.innerHTML = `<div class="iso-escala"><i></i><div><span>0 %</span><span>50 %</span><span>100 % de la fluencia</span></div></div>
       <p class="ayuda">Carga de referencia: todo el peso del usuario (${fmt(M.peso, 0)} N) sobre la línea de carga, con ${M.mat.nombre}. Factor de seguridad ${cargas.fs == null ? '—' : fmt(Math.min(cargas.fs, 99), 2)}${crit ? `; pieza más exigida: ${crit.nombre}` : ''}. Cálculo aproximado, no FEA.</p>`;
   } else if (estado.color === 'material') {
-    ley.innerHTML = `<div class="iso-mats">${[M.materialId, 'acero'].map((id) => `<span><i style="background:${hex(COLOR_MATERIAL[id].rgb)}"></i>${COLOR_MATERIAL[id].nombre}</span>`).join('')}<span><i style="background:var(--hundido);border:1px solid var(--linea)"></i>Banco de pruebas (no es parte de la rodilla)</span></div>
-      <p class="ayuda">Las 12 piezas maquinadas son de ${M.mat.nombre}; los cuatro pernos, de acero. Cambia el material en la pestaña Simulación.</p>`;
+    ley.innerHTML = `<div class="iso-mats">${[M.materialId].map((id) => `<span><i style="background:${hex(COLOR_MATERIAL[id].rgb)}"></i>${COLOR_MATERIAL[id].nombre}</span>`).join('')}<span><i style="background:var(--hundido);border:1px solid var(--linea)"></i>Banco de pruebas (no es parte de la rodilla)</span></div>
+      <p class="ayuda">Las 10 piezas (AFS1, adaptador inferior, 4 eslabones y 4 ejes) son de ${M.mat.nombre}, como en el reporte de SolidWorks. Cambia el material en la pestaña Simulación.</p>`;
   } else ley.innerHTML = '';
 }
 

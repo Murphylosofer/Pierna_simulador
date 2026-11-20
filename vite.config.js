@@ -6,5 +6,6 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 export default defineConfig({
   base: './',
   plugins: [viteSingleFile()],
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 3000, rollupOptions: { input: 'app.html' } },
+  assetsInclude: ['**/*.STL'],
+  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 3000, assetsInlineLimit: 100000000, rollupOptions: { input: 'app.html' } },
 });

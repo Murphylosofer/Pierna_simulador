@@ -21,8 +21,8 @@ export const CONFIG = {
     flexionMinGrados: 0,
     flexionMaxGrados: 135,
     desplazamientoPosteriorEjeMm: 20, // eje de la rodilla ~2 cm posterior a la línea media (TKA)
-    numeroPiezas: 10, // ensamble real: AFS1, adaptador inferior, 4 eslabones y 4 ejes
-    pesoRodillaG: 420, // referencia del equipo
+    numeroPiezas: 10, // ensamble real (Ensamblaje1): AFS1, adaptador inferior, 4 eslabones y 4 ejes
+    pesoRodillaG: 386, // suma de masas del reporte de SolidWorks (6061-T6)
     toleranciaGeneralMm: 0.2,
     acabadoRaUm: 3.2,
     estaturaReferenciaM: 1.65,
@@ -80,27 +80,29 @@ export const CONFIG = {
   },
 
   // ───────────────────────── GEOMETRÍA REAL (SolidWorks) ─────────────────────────
-  // Fuente: ensamble "Ensamblaje2 (1).STEP" y planos DXF del equipo (14-nov-2026).
-  // Cada pieza se describe en SU PROPIO marco, igual que en su archivo de SolidWorks:
-  //   x hacia adelante (anterior), y hacia arriba, z lateral con 0 en el plano medio. mm.
-  // El código arma la rodilla resolviendo el mecanismo (src/ensamble.js); aquí no hay coordenadas inventadas.
+  // Fuente: STL de cada pieza del ensamble "Ensamblaje1" (carpeta "ESTUDIOS y STL", 20-nov-2026), en mm y ya en su
+  // posición real de ensamble (rodilla recta, 0°). Las piezas son las mismas del STEP anterior; lo que cambió son
+  // los eslabones (los cuatro de 80 mm) y qué par va por dentro y cuál por fuera.
+  // Cada pieza se describe en SU PROPIO marco: x hacia adelante (anterior), y hacia arriba, z lateral (0 al centro). mm.
+  // La vista 3D dibuja los STL tal cual (sin escalar ni mover vértices); estas medidas se usan para la cinemática,
+  // las cargas, los planos y la figura, y coinciden con los STL (ver ensamble.js → verificarSTL).
   geometria: {
-    fuente: 'SolidWorks 2018 · Ensamblaje2 (1).STEP + DXF de cada pieza',
+    fuente: 'SolidWorks · Ensamblaje1 (STL por pieza) + estudios estáticos de 736 N y 2,200 N',
     estimado: false,
 
     // AFS1 — adaptador femoral superior. Horquilla en "U" invertida: placa arriba y dos paredes laterales.
     afs1: {
       nombreSW: 'AFS1',
       ancho: 55, pared: 4, // claro interior 47
-      barrenoTrasero: [-55.182, 3.357], // eje B (lleva el Eje superior y los eslabones interiores)
-      barrenoDelantero: [-28.056, 8.357], // eje A (lleva el Eje inferior y los eslabones exteriores)
+      barrenoTrasero: [-55.182, 3.357], // eje B: Eje Ø5 × 70 ("Eslabon2") y eslabones traseros (por fuera)
+      barrenoDelantero: [-28.056, 8.357], // eje A: Eje superior Ø5 × 55 y eslabones diagonales (por dentro)
       diametroBarreno: 5,
       radioOreja: 10, // oreja trasera, concéntrica al eje B
       // Perfil de la pared (vista lateral): arriba plano, abajo inclinado, frente casi vertical.
       xAtras: -55.182, yArriba: 23.357, xFrenteArriba: 19.818,
-      frenteAbajo: [20.488, 8.357], // la arista inferior va de aquí a la parte baja de la oreja (75.67 × 15 → 77.14)
+      frenteAbajo: [20.488, 8.357], // la arista inferior va de aquí a la parte baja de la oreja
       // Placa entre paredes: fondo inclinado y ranura anular arriba para el socket.
-      placa: { yFondoAtras: 13.0, yFondoFrente: 16.364 },
+      placa: { yFondoAtras: 13.0, yFondoFrente: 16.364, punta: [[-58.28, 12.86], [-56.92, 13.21], [-55.18, 13.36]] }, // punta: labio trasero que sobresale 3.1 mm detrás de las paredes (medido en el STL)
       ranura: { centroX: -17.672, dExt: 44, dInt: 32, profundidad: 5 }, // receptáculo circular del socket
     },
 
@@ -108,57 +110,88 @@ export const CONFIG = {
     adaptadorInferior: {
       nombreSW: 'adapatador femoral inferior',
       ancho: 55, pared: 4,
-      barrenoTrasero: [0, 3.355], // eje C (Eje superior, eslabones interiores)
-      barrenoDelantero: [46.792, 12.571], // eje D (Eje inferior, eslabones exteriores)
+      barrenoTrasero: [0, 3.355], // eje C: Eje Ø5 × 70 y eslabones traseros
+      barrenoDelantero: [46.792, 12.571], // eje D: Eje superior Ø5 × 55 y eslabones diagonales
       diametroBarreno: 5,
       radioOreja: 10, // oreja delantera, concéntrica al eje D
       xAtras: -18.208, xFrente: 56.792, yAbajo: -10.231, yArribaAtras: 9.769, // alturas 20.00 atrás y 22.80 adelante
       base: { yArriba: -7.296 },
       ceja: { espesor: 5, yArriba: 5.613 }, // labio frontal entre paredes
-      cilindro: { diametro: 40, largo: 40, centroX: 19.292 }, // macizo en el STEP; aquí se fija el pilón
+      cilindro: { diametro: 40, largo: 40, centroX: 19.292 }, // macizo; aquí se fija el pilón (soporte fijo en SolidWorks)
     },
 
-    // Barras laterales: estadio de 10 de ancho y 5 de espesor, barrenos Ø5 en los extremos.
+    // Los cuatro eslabones son la misma pieza ("eslabonnnnn"): estadio de 10 × 5 con barrenos Ø5 a 80 entre centros.
     eslabones: {
-      ancho: 10, espesor: 5, diametroBarreno: 5,
-      exterior: { nombreSW: 'eslabonnnnn', centros: 100, cantidad: 2 }, // por fuera de las paredes, ejes A–D
-      // CORRECCIÓN 1: en SolidWorks mide 65 entre centros. Con 65 el mecanismo no puede llegar a 0° (ver ensamble.js).
-      interior: { nombreSW: 'eslabon 2', centros: 100, centrosOriginal: 65, cantidad: 2 }, // por dentro, ejes B–C
+      ancho: 10, espesor: 5, diametroBarreno: 5, centros: 80, nombreSW: 'eslabonnnnn',
+      // Par diagonal: une A (AFS1, delantero) con D (adaptador inferior, delantero); va POR DENTRO de las paredes.
+      diagonal: { ejes: 'A–D', lado: 'interior', cantidad: 2 },
+      // Par trasero: une B (oreja trasera del AFS1) con C (trasero del adaptador inferior); va POR FUERA de las paredes.
+      trasero: { ejes: 'B–C', lado: 'exterior', cantidad: 2 },
     },
 
-    // Ejes (pernos) Ø5. El "Eje superior" (55) une los eslabones interiores; el "Eje inferior" (70, archivo "Eslabon2")
-    // atraviesa paredes y eslabones exteriores.
+    // Ejes (pernos) Ø5. Según el reporte de SolidWorks son de 6061-T6, igual que el resto del ensamble.
     ejes: {
       diametro: 5,
-      superior: { nombreSW: 'Eje Superior', largo: 55 },
-      inferior: { nombreSW: 'Eslabon2', largo: 70, chaflan: 0.5 },
-      // Material supuesto: los planos no lo indican. Con Ø5, el aluminio no aguanta la flexión del perno.
-      material: 'Acero aleado clase 8.8', fluenciaMPa: 640, ultimaMPa: 800, densidadKgM3: 7850, ajuste: 'H7/g6',
+      corto: { nombreSW: 'Eje Superior', largo: 55, ejes: 'A y D' }, // atraviesa paredes y eslabones diagonales
+      largo: { nombreSW: 'Eslabon2', largo: 70, ejes: 'B y C' }, // atraviesa paredes y eslabones traseros (por fuera)
+      material: 'al-6061-t6', ajuste: 'H7/g6',
     },
 
-    // Correcciones aplicadas para que la rodilla funcione (cada una se explica en "Validación y supuestos").
-    correcciones: {
-      // 2: chaflán a 45° en la arista trasera inferior de la placa del AFS1; sin él el eslabón interior
-      //    choca con la placa a 129.6° de flexión. Con 5 mm la flexión libre llega a 139°.
-      chaflanPlacaAFS1: 5,
-      // 3: tope de extensión añadido (el diseño no tenía): tornillo M8 que baja por el centro de la placa del AFS1
-      //    y apoya, con un capuchón de hule, sobre la ceja delantera del adaptador inferior justo a 0°.
-      //    Al ser un contacto entre los dos cuerpos lejos del centro de rotación, la fuerza es baja.
-      tope: { rosca: 'M8', dTornillo: 8, areaResistente: 36.6, dHule: 10, altoHule: 5, xEnCeja: 55.8 }, // x en el marco del adaptador inferior
+    // Posición de cada STL: traslación (mm) que lleva el marco propio de la pieza al marco del ensamble de SolidWorks.
+    // Se usa solo para colocar los STL; los vértices no se tocan.
+    stl: {
+      carpeta: 'ESTUDIOS y STL/STL Rodilla',
+      zCentro: 1255.285, // plano medio del ensamble en el STL
+      afs1: [25.5, -23.357], // marco del AFS1 → STL
+      adaptadorInferior: [-22.88, -103.07], // marco del adaptador inferior → STL
     },
 
-    // Pose en la que quedó guardado el ensamble de SolidWorks: el adaptador inferior girado respecto al AFS1.
-    // Sirve para el diagnóstico del diseño original (no para la simulación).
-    poseSolidWorks: { giro: -47.708, t: [-46.014, -62.848] },
+    // ÚNICA modificación a los STL (punto 4 de las instrucciones): tope de extensión escondido.
+    // Un taco maquinado en la cara inferior de la placa del AFS1, entre las dos paredes, justo delante del eje A.
+    // Con la rodilla recta, el canto delantero de los eslabones diagonales apoya en él; queda tapado por las paredes,
+    // así que por fuera la rodilla se ve igual. Sustituye al tornillo M8 de la versión anterior (eliminado).
+    topeOculto: {
+      estimado: true, // medida propuesta por la simulación; falta pasarla a SolidWorks
+      anguloGrados: 0, // la rodilla se detiene a 0° (rodilla recta, igual que en los estudios de SolidWorks)
+      hasta: 9.5, // largo de la cara de apoyo medido sobre el canto del eslabón desde el eje A
+      fondo: 6, // espesor del taco hacia adelante
+      radio: 1.5, // redondeo de las aristas de la cara de apoyo
+      empotre: 1.5, // lo que el contorno entra en la placa (se maquina de una pieza con el AFS1)
+    },
 
     // Marco de referencia de la rodilla para la simulación, definido sobre el adaptador inferior:
-    // x = eje del pilón − 20 mm (el eje de rodilla queda 2 cm detrás de la línea de carga, como pide el equipo),
-    // y = 55 mm sobre el origen del adaptador inferior (mitad de la altura del mecanismo).
+    // x = eje del pilón − 20 mm, y = 55 mm sobre el origen del adaptador inferior.
     origenRodillaY: 55,
   },
 
-  // Pistón neumático propuesto (especificaciones_del_pistón.md). Según el equipo, la horquilla del pistón va en el
-  // Eje superior y el otro extremo en el Eje inferior: en la rodilla real eso es la diagonal B (muslo) – D (pierna).
+  // Estudios estáticos de SolidWorks Simulation del equipo (reportes PDF y capturas en "ESTUDIOS y STL").
+  // Son resultados reales; la simulación de la página solo los interpola.
+  solidworks: {
+    programa: 'SOLIDWORKS Simulation (versión educativa)',
+    tipo: 'Análisis estático lineal (pequeños desplazamientos, sin fricción)',
+    material: '6061-T6 (SS)', // biblioteca de SolidWorks, en TODOS los cuerpos, incluidos los ejes
+    propiedades: { fluenciaMPa: 275, traccionMPa: 310, moduloGPa: 69, poisson: 0.33, densidadKgM3: 2700, corteGPa: 26, dilatacion: 2.4e-5 },
+    sujecion: 'Geometría fija en la cara inferior del cilindro del adaptador inferior',
+    carga: 'Fuerza normal en la cara superior del receptáculo del AFS1 (donde asienta el socket)',
+    contacto: 'Unión rígida global ("bonded"): todas las piezas pegadas entre sí',
+    rodilla: 'Recta (0°), bloqueada en extensión: fase de apoyo',
+    malla: { tipo: 'Sólida, basada en curvatura de combinado', elemento: 1.61363, nodos: 399951, elementos: 262209, calidad: 'Cuadráticos de alto orden', aspectoMax: 8.7333 },
+    masasKg: { afs1: 0.112405, adaptadorInferior: 0.214822, eslabon: 0.0113301, ejeCorto: 0.00291579, ejeLargo: 0.00371101 },
+    estudios: [
+      { id: 'pie', nombre: 'De pie', cargaN: 736, masaKg: 75, reaccionN: 736.008,
+        vonMisesMaxMPa: 87.81, vonMisesMinMPa: 0.005689, desplMaxMm: 0.1041, deformMax: 7.006e-4, fs: 3.13,
+        capturas: { tensiones: '736N/Ensamblaje1-Análisis estático 6061-Tensiones-Tensiones1.jpg', desplazamientos: '736N/Ensamblaje1-Análisis estático 6061-Desplazamientos-Desplazamientos1.jpg', deformaciones: '736N/Ensamblaje1-Análisis estático 6061-Deformaciones unitarias-Deformaciones unitarias1.jpg' } },
+      { id: 'marcha', nombre: 'Pico de marcha', cargaN: 2200, masaKg: 224, reaccionN: 2200.02,
+        vonMisesMaxMPa: 262.5, vonMisesMinMPa: 0.01701, desplMaxMm: 0.3112, deformMax: 2.094e-3, fs: 1.05,
+        capturas: { tensiones: '2200N/Ensamblaje1-Análisis estático 6061-Tensiones-Tensiones1.jpg', desplazamientos: '2200N/Ensamblaje1-Análisis estático 6061-Desplazamientos-Desplazamientos1.jpg', deformaciones: '2200N/Ensamblaje1-Análisis estático 6061-Deformaciones unitarias-Deformaciones unitarias1.jpg' } },
+    ],
+    // Dónde está el máximo: en la arista donde el eslabón diagonal toca al AFS1 (nodo 379400 en ambos estudios).
+    picoUbicacion: 'Arista de contacto entre el eslabón diagonal y el AFS1',
+    // Esfuerzo típico lejos del pico, leído de la escala de colores de las capturas (azul): estimado.
+    entornoMPa: { pie: 15, marcha: 45, estimado: true },
+  },
+
+  // Pistón neumático propuesto (especificaciones_del_pistón.md). Se sigue estudiando entre B (muslo) y D (pierna).
   piston: {
     estimado: true,
     tipo: 'Minicilindro neumático de doble efecto, ISO 6432',
@@ -187,13 +220,14 @@ export const CONFIG = {
     'al-6061-t6': {
       nombre: 'Aluminio 6061-T6',
       corto: '6061-T6',
+      fuente: 'SolidWorks', // propiedades del reporte de SolidWorks Simulation del equipo
       densidadKgM3: 2700,
-      fluenciaMPa: 240,
-      ultimaMPa: 260,
-      fluenciaTipicaMPa: 276,
-      ultimaTipicaMPa: 310,
-      fatigaMPa: 96.5, // resistencia a fatiga típica a 5×10⁸ ciclos (R.R. Moore)
-      moduloGPa: 68.9,
+      fluenciaMPa: 275, // SolidWorks: límite elástico 2.75e8 N/m²
+      ultimaMPa: 310, // SolidWorks: límite de tracción 3.1e8 N/m²
+      fluenciaMinimaMPa: 240, // mínimo de ASTM B221 (referencia)
+      fatigaMPa: 96.5, // resistencia a fatiga típica a 5×10⁸ ciclos (R.R. Moore) — estimado, no viene de SolidWorks
+      moduloGPa: 69, // SolidWorks
+      poisson: 0.33,
       costoRelativo: 1,
       maquinabilidad: 'Buena (≈50 % respecto a 2011); viruta manejable, herramientas comunes',
       nota:
@@ -202,11 +236,10 @@ export const CONFIG = {
     'al-7075-t6': {
       nombre: 'Aluminio 7075-T6',
       corto: '7075-T6',
+      estimado: true, // valores de tablas (ASTM B221); NO hay estudio de SolidWorks con este material
       densidadKgM3: 2810,
       fluenciaMPa: 485,
       ultimaMPa: 540,
-      fluenciaTipicaMPa: 503,
-      ultimaTipicaMPa: 572,
       fatigaMPa: 159,
       moduloGPa: 71.7,
       costoRelativo: 2.2,

@@ -55,15 +55,16 @@ function cuerpoLibre(inst) {
     return `<figure><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Diagrama de cuerpo libre: ${titulo}">${g}</svg><figcaption>${titulo}</figcaption></figure>`;
   };
   const N = (v) => `${fmt(Math.abs(v), 0)} N`;
-  const f1 = esc(sol.u1, c.F1), f2 = esc(sol.u2, c.F2), fs = esc(c.topeN, c.Fs), az = 'var(--serie-sana)', gu = 'var(--guinda)';
+  const fz = c.fuerzas, az = 'var(--serie-sana)', gu = 'var(--guinda)', av = 'var(--aviso)';
   const ens = app_.modelo.ens, cargaP = esc(c.E, -1), pCarga = aMundo(sol.muslo, [ens.ejeSocketX, ens.yArribaAFS1]);
-  const pPilon = [ens.ejePilonX, ens.yFondoCilindro], fsP = esc(c.topeN, -c.Fs);
+  const pPilon = [ens.ejePilonX, ens.yFondoCilindro];
   const linea = (X, a, b) => `<path d="M${pt(X(a))}L${pt(X(b))}" stroke="var(--tinta)" stroke-width="7" stroke-linecap="round" opacity=".28"/>`;
+  const tope = (F) => [c.topeS, F, av, c.Fs > 1 ? `tope ${N(c.Fs)}` : ''];
   return [
-    base([sol.A, sol.B], [[sol.A, f1, az, N(c.F1)], [sol.B, f2, az, N(c.F2)], [c.topeS, fs, 'var(--aviso)', c.Fs > 1 ? `tope ${N(c.Fs)}` : ''], [pCarga, cargaP, gu, N(c.magE)]], 'AFS1 (muslo)', (X) => `<path d="M${pt(X(sol.A))}L${pt(X(sol.B))}L${pt(X(pCarga))}z" fill="var(--guinda-suave)" stroke="var(--tinta)" stroke-width="1.5"/>`),
-    base([sol.D, sol.A], [[sol.A, esc(f1, -1), az, N(c.F1)], [sol.D, f1, az, c.F1 >= 0 ? 'compresión' : 'tracción']], 'Eslabones exteriores (par)', (X) => linea(X, sol.D, sol.A)),
-    base([sol.C, sol.B], [[sol.B, esc(f2, -1), az, N(c.F2)], [sol.C, f2, az, c.F2 >= 0 ? 'compresión' : 'tracción']], 'Eslabones interiores (par)', (X) => linea(X, sol.C, sol.B)),
-    base([sol.C, sol.D], [[sol.D, esc(f1, -1), az, N(c.F1)], [sol.C, esc(f2, -1), az, N(c.F2)], [c.topeS, fsP, 'var(--aviso)', c.Fs > 1 ? `tope ${N(c.Fs)}` : ''], [pPilon, c.E, gu, `R ${N(c.magE)}`]], 'Adaptador inferior (pierna)', (X) => `<path d="M${pt(X(sol.C))}L${pt(X(sol.D))}L${pt(X(pPilon))}z" fill="var(--hundido)" stroke="var(--tinta)" stroke-width="1.5"/>`),
+    base([sol.A, sol.B, c.topeS], [[sol.A, fz.muslo.A, az, N(c.FA)], [sol.B, fz.muslo.B, az, N(c.F2)], tope(fz.muslo.tope), [pCarga, cargaP, gu, N(c.magE)]], 'AFS1 (muslo)', (X) => `<path d="M${pt(X(sol.A))}L${pt(X(sol.B))}L${pt(X(pCarga))}z" fill="var(--guinda-suave)" stroke="var(--tinta)" stroke-width="1.5"/>`),
+    base([sol.D, sol.A, c.topeS], [[sol.A, fz.diagonal.A, az, N(c.FA)], [sol.D, fz.diagonal.D, az, c.enTope ? `${N(c.FD)} · flexión` : c.F1 >= 0 ? 'compresión' : 'tracción'], tope(fz.diagonal.tope)], 'Eslabones diagonales A–D (par)', (X) => linea(X, sol.D, sol.A)),
+    base([sol.C, sol.B], [[sol.B, fz.trasero.B, az, N(c.F2)], [sol.C, fz.trasero.C, az, c.F2 >= 0 ? 'compresión' : 'tracción']], 'Eslabones traseros B–C (par)', (X) => linea(X, sol.C, sol.B)),
+    base([sol.C, sol.D], [[sol.D, fz.pierna.D, az, N(c.FD)], [sol.C, fz.pierna.C, az, N(c.F2)], [pPilon, c.E, gu, `R ${N(c.magE)}`]], 'Adaptador inferior (pierna)', (X) => `<path d="M${pt(X(sol.C))}L${pt(X(sol.D))}L${pt(X(pPilon))}z" fill="var(--hundido)" stroke="var(--tinta)" stroke-width="1.5"/>`),
   ].join('');
 }
 
@@ -102,7 +103,7 @@ function pintarGraficas() {
   gPiston = grafica(raiz.querySelector('#dg-piston-g'), { titulo: 'Longitud del pistón contra flexión', unidad: 'mm entre ojillos', ejeX: '° de flexión', xMin: 0, xMax: 135, yMin: 60, yMax: 120, decimales: 1,
     series: [{ nombre: 'Longitud entre ojillos', color: 'var(--serie-sana)', puntos: E.curva.map((c) => [c.theta, c.L]) }],
     refs: [{ y: cp.retraidoMin, texto: `Retraído mínimo ${cp.retraidoMin} mm`, incluir: true }, { y: cp.retraidoMax, texto: `Retraído máximo ${cp.retraidoMax} mm`, incluir: true }, { y: E.Lmin + 30, texto: 'Carrera de 30 mm', color: 'var(--aviso)', incluir: true }],
-    nota: `Eje superior (B) a eje inferior (D): ${fmt(E.Lmax, 1)} mm con la pierna recta, mínimo de ${fmt(E.Lmin, 1)} mm a ${fmt(E.curva.find((q) => q.L === E.Lmin).theta, 0)}° y ${fmt(E.curva[E.curva.length - 1].L, 1)} mm a 135°. Carrera usada: ${fmt(E.carrera, 1)} mm.` });
+    nota: `Eje B (AFS1) a eje D (adaptador inferior): ${fmt(E.Lmax, 1)} mm con la pierna recta, mínimo de ${fmt(E.Lmin, 1)} mm a ${fmt(E.curva.find((q) => q.L === E.Lmin).theta, 0)}° y ${fmt(E.curva[E.curva.length - 1].L, 1)} mm a 135°. Carrera usada: ${fmt(E.carrera, 1)} mm.` });
   const si = (b) => `<td style="color:var(--${b ? 'ok' : 'mal'});font-weight:600">${b ? 'Cumple' : 'No cumple'}</td>`;
   raiz.querySelector('#dg-piston-t').innerHTML = `<div class="tabla-desliza"><table><thead><tr><th>Comprobación</th><th>Resultado</th><th>Requisito del equipo</th><th></th></tr></thead><tbody>
     <tr><td>Carrera necesaria de 0° a 135°</td><td class="n">${fmt(E.carrera, 1)} mm</td><td>25 a 30 mm</td>${si(E.carrera <= 30)}</tr>
@@ -113,14 +114,14 @@ function pintarGraficas() {
     <tr><td>Fuerza al extender a ${fmt(cp.presionMPa * 10, 0)} bar</td><td class="n">${fmt(E.fuerza, 0)} N</td><td>F = p · π·d²/4</td><td></td></tr>
     <tr><td>Par máximo sobre la rodilla</td><td class="n">${fmt(E.parMaxNm, 1)} N·m</td><td>F × brazo respecto al CIR</td><td></td></tr>
   </tbody></table></div>
-  <div class="aviso cuidado" style="margin-top:10px"><span><strong>Con la rodilla real el pistón no cabe en lo que pedía el documento.</strong> Montado entre el Eje superior (B) y el Eje inferior (D), como indica el equipo, necesita ${fmt(E.carrera, 1)} mm de carrera y queda en ${fmt(E.Lmin, 1)}–${fmt(E.Lmax, 1)} mm entre ojillos: sirve un minicilindro Ø16 de 40 mm de carrera, no el de 25–30. Además la longitud no cambia en un solo sentido (baja hasta ${fmt(E.curva.find((q) => q.L === E.Lmin).theta, 0)}° y luego sube), así que un amortiguador simple frenaría en un tramo y empujaría en el otro. Es un estudio en el plano lateral; el pistón todavía no se dibuja en 3D.</span></div>`;
+  <div class="aviso cuidado" style="margin-top:10px"><span><strong>Con la rodilla real el pistón no cabe en lo que pedía el documento.</strong> Montado entre el eje B del AFS1 y el eje D del adaptador inferior, necesita ${fmt(E.carrera, 1)} mm de carrera y queda en ${fmt(E.Lmin, 1)}–${fmt(E.Lmax, 1)} mm entre ojillos: sirve un minicilindro Ø16 de 40 mm de carrera, no el de 25–30. Además la longitud no cambia en un solo sentido (baja hasta ${fmt(E.curva.find((q) => q.L === E.Lmin).theta, 0)}° y luego sube), así que un amortiguador simple frenaría en un tramo y empujaría en el otro. Es un estudio en el plano lateral; el pistón todavía no se dibuja en 3D.</span></div>`;
   gTorque = grafica(raiz.querySelector('#dg-torque'), { titulo: 'Torque contra ángulo de flexión', unidad: 'N·m', ejeX: '° de flexión', xMin: 0, xMax: 135,
     series: [{ nombre: 'Torque externo en la rodilla', color: 'var(--serie-protesis)', puntos: c.muestras.map((m) => [m.theta, m.torque]) }], parametrica: true,
     nota: `Escenario: ${escn.nombre}. La curva recorre el movimiento en orden; el punto marca el instante actual. A 0° se apilan los valores del apoyo.` });
   gFuerza = grafica(raiz.querySelector('#dg-fuerza'), { titulo: 'Fuerza contra tiempo', unidad: 'N', ejeX: 's', xMin: 0, xMax: T, formatoX: (v) => fmt(v, 1), decimales: 0,
     series: [{ nombre: 'Reacción del suelo', color: 'var(--serie-protesis)', puntos: c.muestras.map((m) => [m.t * T, m.reaccionN]) },
-      { nombre: 'Eslabones exteriores', color: 'var(--serie-sana)', puntos: c.muestras.map((m) => [m.t * T, m.F1]) },
-      { nombre: 'Eslabones interiores', color: 'var(--serie-tres)', guion: true, puntos: c.muestras.map((m) => [m.t * T, m.F2]) }],
+      { nombre: 'Eslabones diagonales', color: 'var(--serie-sana)', puntos: c.muestras.map((m) => [m.t * T, m.F1]) },
+      { nombre: 'Eslabones traseros', color: 'var(--serie-tres)', guion: true, puntos: c.muestras.map((m) => [m.t * T, m.F2]) }],
     refs: [{ y: M.capacidadDisenoKg * 9.81, texto: `Capacidad de diseño ${fmt(M.capacidadDisenoKg, 1)} kg = ${fmt(M.capacidadDisenoKg * 9.81, 0)} N`, incluir: c.reaccionMax > M.capacidadDisenoKg * 9.81 * 0.6 }] });
 }
 
@@ -159,7 +160,7 @@ export function montar(cont, app) {
       <div class="panel tarjeta"><h3>Zona de estabilidad y alineación de banco</h3><p class="ayuda">Línea azul discontinua: trocánter–rodilla–tobillo (TKA). La rodilla queda ${CONFIG.diseno.desplazamientoPosteriorEjeMm} mm detrás de ella.</p><div id="dg-tka"></div><div class="chips">${app.chipNorma('radcliffe')}${app.chipNorma('iso-10328')}</div></div>
       <div class="panel tarjeta ancho"><h3>Diagramas de cuerpo libre</h3><p class="ayuda">Fuerzas sobre cada cuerpo en este instante. Azul: reacciones en los pernos. Guinda: carga externa. Las flechas indican dirección; la magnitud está en el rótulo.</p><div class="dcl" id="dg-dcl"></div></div>
       <div id="dg-torque"></div><div id="dg-fuerza"></div>
-      <div class="panel tarjeta ancho"><h3>Pistón neumático (propuesta del equipo)</h3><p class="ayuda">Minicilindro de doble efecto Ø16 entre el Eje superior del AFS1 (B) y el Eje inferior del adaptador inferior (D), dentro del canal de 47 mm entre los eslabones interiores.</p>
+      <div class="panel tarjeta ancho"><h3>Pistón neumático (propuesta del equipo)</h3><p class="ayuda">Minicilindro de doble efecto Ø16 entre el eje B del AFS1 y el eje D del adaptador inferior, dentro del canal de 47 mm entre los eslabones interiores.</p>
         <div class="dg" style="margin-top:10px"><div id="dg-piston"></div><div id="dg-piston-g"></div></div><div id="dg-piston-t" style="margin-top:12px"></div></div>
     </div>`;
   cont.querySelector('#dg-play').addEventListener('click', () => { app.estado.reproduciendo = !app.estado.reproduciendo; actualizar(app); });

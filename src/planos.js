@@ -260,11 +260,11 @@ export function hojaPieza(pz, app, numero, total) {
     `1. Tolerancia general ±${d.toleranciaGeneralMm} mm. Ajuste de pernos: barreno H7, perno g6.`,
     `2. Acabado superficial Ra ${d.acabadoRaUm} µm en todas las caras maquinadas.`,
     '3. Romper filos 0.3 × 45°. Acotación según ASME Y14.5-2018.',
-    est ? '4. El rombo marca cotas ESTIMADAS, pendientes de las medidas reales de SolidWorks.' : `4. Cotas de SolidWorks (${pz.nombreSW || 'Ensamblaje2'}). Cantidad por rodilla: ${pz.cantidad}.`,
+    est ? '4. El rombo marca cotas ESTIMADAS, pendientes de las medidas reales de SolidWorks.' : `4. Cotas de los STL de SolidWorks (Ensamblaje1 · ${pz.nombreSW || ''}). Cantidad por rodilla: ${pz.cantidad}.`,
     '5. Plano de apoyo: el plano oficial para CNC se emite desde SolidWorks.',
-    ...(pz.correccion ? partir('CORRECCIÓN: ' + pz.correccion, 95).map((l, i) => (i ? '   ' : '6. ') + l) : []),
+    ...(pz.correccion ? partir('MODIFICACIÓN: ' + pz.correccion + ' Cotas del tope: ESTIMADAS.', 95).map((l, i) => (i ? '   ' : '6. ') + l) : []),
   ], 12, 167));
-  const materialPz = pz.id === 'tope' ? 'Acero 8.8 + hule' : pz.material === 'acero' ? CONFIG.geometria.ejes.material : nombreMaterial(app);
+  const materialPz = nombreMaterial(app);
   ents.push(...marco({ nombre: `${pz.item}. ${pz.nombre}`, material: materialPz, escala, hoja: `${numero} de ${total}`, fecha: fechaHoy() }));
   return { id: pz.id, titulo: `${pz.item}. ${pz.nombre}`, ents, pieza: pz, vistasDxf: { F: v.F, S: v.S, L: v.L, corte: corte?.ents || [], caja: b } };
 }
@@ -309,10 +309,9 @@ export function hojaEnsamble(app, total) {
   ents.push(tx(ox - 40, b.y1 + 16, 'VISTA LATERAL DERECHA A 0° DE FLEXIÓN · ESCALA 3:4', 2, 'start'));
   // Lista de materiales
   const x0 = 140, y0 = 14, anchos = [10, 70, 12, 55], alto = 5.6;
-  const mat = (pz) => (pz.id === 'tope' ? 'Acero 8.8 + capuchón de hule' : pz.material === 'acero' ? g.ejes.material : nombreMaterial(app));
+  const mat = () => nombreMaterial(app);
   const filas = [['N.º', 'DESCRIPCIÓN', 'CANT.', 'MATERIAL'],
-    ...unicas.map((p) => [p.item, `${p.nombre}${p.anadido ? ' (añadido)' : p.correccion ? ' (corregido)' : ''}`, p.cantidad, mat(p)]),
-    [unicas.length + 1, `Contratuerca ${g.correcciones.tope.rosca} para el tope`, 1, 'Acero (comercial)']];
+    ...unicas.map((p) => [p.item, `${p.id.startsWith('eslabon') ? 'Eslabón (diagonal y trasero)' : p.nombre}${p.correccion ? ' (con tope)' : ''}`, p.cantidad, mat(p)])];
   filas.forEach((f, i) => {
     let x = x0;
     f.forEach((c, j) => { ents.push(tx(x + 1.5, y0 + i * alto + 3.9, c, 2.1, 'start', 'texto', i === 0)); x += anchos[j]; });
@@ -321,12 +320,12 @@ export function hojaEnsamble(app, total) {
   ents.push(rectE(x0, y0, x0 + 147, y0 + filas.length * alto, 'marco'));
   let x = x0; anchos.slice(0, 3).forEach((a) => { x += a; ents.push(ln(x, y0, x, y0 + filas.length * alto, 'fina')); });
   const yN = y0 + filas.length * alto + 5;
-  ents.push(tx(x0, yN, `Masa calculada: ${M.masa ? fmt(M.masa.totalG, 0) + ' g' : 'pendiente'} con ${nombreMaterial(app)} (ejes y tope de acero). Referencia del equipo: ${CONFIG.diseno.pesoRodillaG} g.`, 2.1));
-  ents.push(...notas(['CORRECCIONES AL ENSAMBLE DE SOLIDWORKS:',
-    `a) Eslabón interior: ${g.eslabones.interior.centros} entre centros (era ${g.eslabones.interior.centrosOriginal}); con ${g.eslabones.interior.centrosOriginal} la rodilla no llega a 0°.`,
-    `b) AFS1: chaflán ${g.correcciones.chaflanPlacaAFS1} × 45° en la arista trasera inferior de la placa (libera la flexión hasta 139°).`,
-    `c) Tope de extensión ${g.correcciones.tope.rosca} añadido: apoya en la ceja del adaptador inferior a 0°.`], x0, yN + 6));
-  ents.push(...notas(['NOTAS:', '1. Las piezas 3 a 6 van en pares (derecha e izquierda).', '2. Los ejes necesitan retención axial (anillos o prisioneros), no definida en SolidWorks.', '3. Medidas de SolidWorks (Ensamblaje2). Flexión de 0° a 135°.', '4. Plano de apoyo: no sustituye al plano oficial.'], 12, 172));
+  ents.push(tx(x0, yN, `Masa: ${M.masa ? fmt(M.masa.totalG, 0) + ' g' : 'pendiente'} con ${nombreMaterial(app)} (reporte de SolidWorks: ${CONFIG.diseno.pesoRodillaG} g + tope escondido).`, 2.1));
+  const lim = M.choques;
+  ents.push(...notas(['DIFERENCIAS CON LOS STL DE SOLIDWORKS:',
+    `a) Única modificación: tope escondido bajo la placa del AFS1 (taco de ${g.topeOculto.fondo} mm, R${g.topeOculto.radio}), apoyo de los eslabones diagonales a ${g.topeOculto.anguloGrados}°.`,
+    `b) Sin corregir: ${lim.primero ? `con los STL el eslabón diagonal choca a ${fmt(lim.flexionLibre, 1)}° (${lim.primero.par}).` : 'sin choques.'}`], x0, yN + 6));
+  ents.push(...notas(['NOTAS:', `1. Los eslabones son la misma pieza (${g.eslabones.centros} entre centros): 2 diagonales por dentro (A–D) y 2 traseros por fuera (B–C).`, '2. Los ejes necesitan retención axial (anillos o prisioneros), no definida en SolidWorks.', '3. Medidas de los STL de SolidWorks (Ensamblaje1).', '4. Plano de apoyo: no sustituye al plano oficial.'], 12, 172));
   ents.push(...marco({ nombre: 'Ensamble de la rodilla', material: 'Ver lista de materiales', escala: '3:4', hoja: `1 de ${total}`, fecha: fechaHoy() }));
   return { id: 'ensamble', titulo: 'Ensamble y lista de materiales', ents };
 }

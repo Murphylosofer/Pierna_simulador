@@ -2,49 +2,47 @@
 import { CONFIG, G } from './config.js';
 import { fmt } from './mat.js';
 import { revisarInterferencias } from './interferencias.js';
-import { diagnosticoOriginal } from './ensamble.js';
+import { verificarSTL } from './ensamble.js';
+import { cruz, res, norma } from './mat.js';
 
 let raiz, app_;
 const ok = (b) => `<span style="color:var(--${b ? 'ok' : 'mal'});font-weight:600">${b ? '✓ coincide' : '✗ no coincide'}</span>`;
 const cerca = (a, b) => Math.abs(a - b) <= Math.max(0.5, Math.abs(b) * 0.01);
 
 function casoDePie(M) {
-  const seg = M.seg, d = CONFIG.geometria.ejes.diametro, ens = M.ens;
+  const seg = M.seg, d = CONFIG.geometria.ejes.diametro, ens = M.ens, a = CONFIG.geometria.afs1, t = CONFIG.geometria.eslabones.espesor;
   const inst = M.instante('bipedestacion', 0), c = inst.cargas, sol = inst.sol;
   const W = M.usuario.pesoKg * G, R = 0.5 * W, Wd = CONFIG.distal.masaDistalKg * G;
   const xcop = M.ctx.e + (0.45 - 0.25) * seg.pie; // la pierna está vertical: x del centro de presión respecto al centro de referencia
   const Mk = (R * xcop) / 1000;
-  const I = sol.cir, xt = ens.topeContacto[0];
-  // Momentos respecto al CIR: los dos eslabones pasan por él, solo quedan R, el peso distal (en x = 0) y el tope.
-  const Fs = (R * (xcop - I[0]) + Wd * I[0]) / (xt - I[0]);
-  // Fuerzas en eslabones: F1·u1 + F2·u2 = (0, R − Wd − Fs)
-  const u1 = sol.u1, u2 = sol.u2, Ey = R - Wd - Fs, den = u1[0] * u2[1] - u1[1] * u2[0];
-  const F1 = (0 * u2[1] - Ey * u2[0]) / den, F2 = (u1[0] * Ey - u1[1] * 0) / den;
-  const tau = Math.abs(F2) / (2 * ((Math.PI * d * d) / 4));
+  const I = sol.cir, { A, C, D, u2 } = sol;
+  // 1) Pierna (adaptador inferior + pilón + pie): tres incógnitas, la fuerza en D (2) y la del par trasero F2.
+  const E = [0, R - Wd], ME = R * xcop;
+  const F2 = (cruz(D, E) - ME) / cruz(res(D, C), u2);
+  const fD = [F2 * u2[0] - E[0], F2 * u2[1] - E[1]];
+  // 2) Eslabón diagonal: momentos respecto a A ⇒ fuerza del tope.
+  const P = c.topeS, n = c.topeN;
+  const Fs = cruz(res(D, A), fD) / cruz(res(P, A), n);
+  const FA = norma([fD[0] - Fs * n[0], fD[1] - Fs * n[1]]);
+  const Mp = (FA / 2) * (t / 2 + a.pared / 2), sp = (32 * Mp) / (Math.PI * d ** 3);
+  const brazo = Math.abs(cruz(res(P, A), n));
   return `<ol class="vl-pasos">
     <li>Peso: W = m·g = ${fmt(M.usuario.pesoKg, 0)} × 9.81 = <b>${fmt(W, 1)} N</b>. De pie, cada pierna carga la mitad: R = <b>${fmt(R, 1)} N</b>. Modelo: ${fmt(inst.reaccionN, 1)} N ${ok(cerca(R, inst.reaccionN))}</li>
-    <li>Brazo de palanca: la línea de carga sube vertical desde el centro de presión, a ${fmt(xcop, 1)} mm por delante del centro de referencia (20 mm de alineación + 0.20 × ${fmt(seg.pie, 0)} mm de pie).</li>
-    <li>Torque respecto al centro de referencia: M = R·d = ${fmt(R, 1)} × ${fmt(xcop / 1000, 4)} = <b>${fmt(Mk, 2)} N·m</b> de extensión. Modelo: ${fmt(inst.torqueNm, 2)} N·m ${ok(Math.abs(Mk - inst.torqueNm) < 0.6)} (el modelo resta el peso de la parte distal).</li>
-    <li>CIR a 0°: (${fmt(I[0], 1)}, ${fmt(I[1], 1)}) mm, muy alto y ${fmt(xcop - I[0], 0)} mm detrás de la línea de carga ⇒ <b>estable</b>: el peso empuja la rodilla contra su tope.</li>
-    <li>Fuerza del tope (momentos respecto al CIR, por donde pasan los dos eslabones): F<sub>tope</sub> = [R·(x<sub>cp</sub> − x<sub>CIR</sub>) + W<sub>distal</sub>·x<sub>CIR</sub>] / (x<sub>tope</sub> − x<sub>CIR</sub>) = [${fmt(R, 1)} × ${fmt(xcop - I[0], 1)} + ${fmt(Wd, 1)} × ${fmt(I[0], 1)}] / ${fmt(xt - I[0], 1)} = <b>${fmt(Fs, 1)} N</b>. Modelo: ${fmt(c.Fs, 1)} N ${ok(cerca(Fs, c.Fs))}</li>
-    <li>Eslabones (ΣFx = 0, ΣFy = 0 con lo que queda): F<sub>exterior</sub> = <b>${fmt(F1, 1)} N</b>, F<sub>interior</sub> = <b>${fmt(F2, 1)} N</b>. Modelo: ${fmt(c.F1, 1)} y ${fmt(c.F2, 1)} N ${ok(Math.abs(F1 - c.F1) < 2 && Math.abs(F2 - c.F2) < 2)}</li>
-    <li>Cortante en el eje B (cortante doble, Ø${d}): τ = F / (2·π·d²/4) = ${fmt(Math.abs(F2), 1)} / ${fmt((2 * Math.PI * d * d) / 4, 1)} = <b>${fmt(tau, 2)} MPa</b>. Modelo: ${fmt(c.esfuerzos.pernoB.tau, 2)} MPa ${ok(Math.abs(tau - c.esfuerzos.pernoB.tau) < 0.1)}</li>
-    <li>Factor de seguridad del modelo: <b>${c.fs == null ? 'pendiente' : fmt(Math.min(c.fs, 99), 2)}</b> (pieza crítica: ${c.critica || '—'}). Muy por encima de 1.5, como se espera de pie.</li></ol>`;
+    <li>Torque respecto al centro de referencia: la línea de carga sube a ${fmt(xcop, 1)} mm por delante ⇒ M = ${fmt(R, 1)} × ${fmt(xcop / 1000, 4)} = <b>${fmt(Mk, 2)} N·m</b> de extensión. Modelo: ${fmt(inst.torqueNm, 2)} N·m ${ok(Math.abs(Mk - inst.torqueNm) < 0.6)} (el modelo resta el peso de la parte distal).</li>
+    <li>CIR a 0°: (${fmt(I[0], 1)}, ${fmt(I[1], 1)}) mm, alto y ${fmt(xcop - I[0], 0)} mm detrás de la línea de carga ⇒ <b>estable</b>: el peso empuja la rodilla hacia la extensión, contra el tope escondido.</li>
+    <li>Pierna (ΣF = 0, ΣM = 0, incógnitas: fuerza en D y par trasero): F<sub>trasero</sub> = (D × E − M) / ((D − C) × u₂) = <b>${fmt(F2, 1)} N</b>; fuerza en D = <b>${fmt(norma(fD), 1)} N</b>. Modelo: ${fmt(c.F2, 1)} y ${fmt(c.FD, 1)} N ${ok(Math.abs(F2 - c.F2) < 2 && Math.abs(norma(fD) - c.FD) < 2)}</li>
+    <li>Eslabón diagonal (momentos respecto a A): la fuerza en D tiene un brazo de ~${fmt(Math.abs(cruz(res(D, A), fD)) / Math.max(norma(fD), 1e-9), 0)} mm y el tope solo ${fmt(brazo, 1)} mm ⇒ F<sub>tope</sub> = <b>${fmt(Fs, 0)} N</b> (${fmt(Fs / R, 1)} veces la carga). Modelo: ${fmt(c.Fs, 0)} N ${ok(cerca(Fs, c.Fs))}</li>
+    <li>Eje A (ΣF del eslabón): F<sub>A</sub> = <b>${fmt(FA, 0)} N</b>. Flexión del eje Ø${d}: M = (F/2)·(t/2 + pared/2) = ${fmt(Mp, 0)} N·mm ⇒ σ = 32·M/(π·d³) = <b>${fmt(sp, 0)} MPa</b>. Modelo: ${fmt(c.esfuerzos.pernoA.sigma, 0)} MPa ${ok(Math.abs(sp - c.esfuerzos.pernoA.sigma) < 1)}</li>
+    <li>Factor de seguridad del modelo: <b>${c.fs == null ? 'pendiente' : fmt(Math.min(c.fs, 99), 2)}</b> (pieza crítica: ${c.critica || '—'}). ${c.fs != null && c.fs < 1.5 ? '<strong style="color:var(--mal)">El eje A queda corto por la palanca tan pequeña del tope (ver el reporte).</strong>' : ''}</li></ol>`;
 }
 
-// Diagnóstico del ensamble de SolidWorks tal como llegó, y efecto de cada corrección.
+// Geometría tomada de los STL de SolidWorks y lo que se encontró al moverla.
 function diagnostico(M) {
-  const g = CONFIG.geometria, dx = diagnosticoOriginal(), ens = M.ens, el = g.eslabones;
-  return `<section class="panel vl ancho"><h3>0. Diagnóstico del ensamble de SolidWorks (Ensamblaje2)</h3>
-    <p>La simulación usa las piezas exactamente como vienen del STEP: AFS1, adaptador femoral inferior, eslabones de ${el.exterior.centros} y ${el.interior.centrosOriginal} mm entre centros y ejes Ø${g.ejes.diametro} de ${g.ejes.superior.largo} y ${g.ejes.inferior.largo} mm. Con eso la rodilla no funciona:</p>
-    <div class="aviso peligro"><span><strong>Con el eslabón interior de ${el.interior.centrosOriginal} mm la rodilla no puede enderezarse.</strong> ${dx.aCero.motivo} En SolidWorks el ensamble quedó guardado con el adaptador inferior girado ${fmt(-dx.pose.giro, 1)}° y, desde ahí, el mecanismo solo puede doblarse más: la flexión mínima posible es ${fmt(dx.flexionMinima, 1)}°. La pose guardada está pegada a ese límite (punto muerto).</span></div>
-    <p style="margin-top:10px"><strong>Correcciones aplicadas</strong> (todas en <code>config.js → geometria</code>):</p>
-    <ol class="vl-pasos">
-      <li><strong>Eslabón interior de ${el.interior.centrosOriginal} → ${el.interior.centros} mm</strong> entre centros, igual que el exterior: las cuatro barras quedan como una sola pieza que se fabrica cuatro veces. Así la rodilla cierra a 0° con el pilón paralelo al socket, el CIR queda alto y detrás de la línea de carga, y no hay puntos muertos. Altura total de la rodilla: ${fmt(ens.alturaTotal, 0)} mm.</li>
-      <li><strong>Chaflán de ${g.correcciones.chaflanPlacaAFS1} × 45°</strong> en la arista trasera inferior de la placa del AFS1. Sin él, el eslabón interior pega con la placa a 129.6° de flexión; con él la flexión queda libre hasta 139°, que actúa como tope natural de flexión.</li>
-      <li><strong>Tope de extensión ${g.correcciones.tope.rosca}</strong> (pieza añadida): el diseño no tenía nada que impidiera la hiperextensión. Un tornillo baja de la placa del AFS1 y apoya con un capuchón de hule en la ceja delantera del adaptador inferior justo a 0°. Al ser un contacto entre los dos cuerpos, lejos del CIR, la fuerza es baja (unos ${fmt(M.instante('bipedestacion', 0).cargas.Fs, 0)} N de pie).</li>
-    </ol>
-    <p class="ayuda">Se probaron antes otras salidas sin cambiar piezas: montar una horquilla al revés o cruzar los eslabones. Cierran a 0°, pero dejan el CIR bajo (rodilla inestable) o el pilón 35–60 mm fuera del socket. Usar dos eslabones de 65 mm deja la flexión en 115°.</p>
+  const g = CONFIG.geometria, ens = M.ens, el = g.eslabones, v = verificarSTL(), ch = M.choques, tp = ens.tope, to = g.topeOculto;
+  return `<section class="panel vl ancho"><h3>0. Geometría de los STL de SolidWorks (Ensamblaje1)</h3>
+    <p>La vista 3D dibuja los STL del equipo tal cual: sin escalar, sin simplificar y sin mover medidas. Cada pieza se mueve con su cuerpo del mecanismo. Los centros de los cuatro ejes medidos en los STL coinciden con el mecanismo resuelto a ${fmt(v.max, 3)} mm o menos. Los cuatro eslabones son la misma pieza de ${el.centros} mm entre centros: el par <strong>diagonal</strong> (A–D) va por dentro de las paredes con ejes de ${g.ejes.corto.largo} mm, y el par <strong>trasero</strong> (B–C) por fuera con ejes de ${g.ejes.largo.largo} mm.</p>
+    ${ch.lista.length ? `<div class="aviso peligro"><span><strong>Con los STL tal cual, la rodilla solo se dobla ${fmt(ch.flexionLibre, 1)}° antes de chocar.</strong> ${ch.lista.map((x) => `${x.par}: desde ${fmt(x.desde, 1)}°`).join('; ')}. No se corrigió (regla del equipo: avisar, no modificar). La simulación sigue el movimiento completo y pinta en rojo las piezas que chocan.</span></div>` : '<div class="aviso ok"><span>Sin choques de 0° a 140°.</span></div>'}
+    <p style="margin-top:10px"><strong>Única modificación: tope de extensión escondido.</strong> Taco de ${to.fondo} mm maquinado bajo la placa del AFS1, entre las dos paredes, delante del eje A. A ${to.anguloGrados}° el canto delantero de los eslabones diagonales apoya en él a lo largo de ${fmt(tp.largoApoyo, 1)} mm, con aristas redondeadas R${to.radio}. Queda ${fmt(tp.margenOculto, 2)} mm por encima del borde inferior de las paredes, así que por fuera no se ve. Se quitó el tornillo M8 que hacía de tope en la versión anterior, y también el chaflán que se había agregado a la placa.</p>
   </section>`;
 }
 
@@ -68,13 +66,13 @@ function pintar() {
   raiz.querySelector('#vl').innerHTML = `
     <div class="vl-rejilla">
       ${diagnostico(M)}
-      <section class="panel vl"><h3>1. El mecanismo no se traba en 0°–135°</h3>
-        <div class="aviso ${v.ok ? 'ok' : 'peligro'}"><span><strong>${v.ok ? 'Verificado.' : 'Falla.'}</strong> Se resolvió el cierre de lazo cada 0.25° de 0° a ${v.hasta}°.</span></div>
+      <section class="panel vl"><h3>1. Cinemática y choques en 0°–135°</h3>
+        <div class="aviso ${v.ok ? 'ok' : 'peligro'}"><span><strong>${v.ok ? 'El lazo no se traba.' : 'Falla.'}</strong> Se resolvió el cierre de lazo cada 0.25° de 0° a ${v.hasta}°. Los choques entre piezas se revisan aparte (abajo).</span></div>
         <ul><li>El lazo siempre cierra: discriminante mínimo ${fmt(v.minDisc, 1)} mm (debe ser &gt; 0).</li>
         <li>Las barras nunca quedan paralelas: |sen| mínimo ${fmt(v.minPar, 2)} (sin punto muerto).</li>
         <li>Sin saltos de rama: el eje A se mueve como máximo ${fmt(v.saltoMax, 2)} mm por paso.</li>
-        <li>${(() => { const r = Object.entries(revisarInterferencias()); return r.length ? `<strong style="color:var(--mal)">Hay interferencias:</strong> ${r.map(([k, x]) => `${k} (${x.desde}°–${x.hasta}°, ${fmt(x.max, 1)} mm)`).join('; ')}.` : 'Sin interferencias: ningún par de piezas se encima en todo el rango (revisión prisma contra prisma cada 1°).'; })()}</li>
-        <li>${v.cruceDesde == null ? 'Los eslabones exterior e interior no se cruzan en la vista lateral.' : `A partir de ${fmt(v.cruceDesde, 0)}° los eslabones exterior e interior se cruzan <em>solo en la vista lateral</em>: van en planos distintos (exteriores por fuera de las paredes, interiores por dentro), así que no se tocan. Las holguras reales deben confirmarse en SolidWorks.`}</li></ul></section>
+        <li>${(() => { const r = Object.entries(revisarInterferencias(135, 0.05)); return r.length ? `<strong style="color:var(--mal)">Choques de los STL (no corregidos):</strong> ${r.map(([k, x]) => `${k} (${x.desde}°–${x.hasta}°, hasta ${fmt(x.max, 1)} mm de encimado)`).join('; ')}. Revisado también con las mallas STL completas: primer contacto a 53.3° y a 90.1°.` : 'Sin interferencias: ningún par de piezas se encima en todo el rango.'; })()}</li>
+        <li>${v.cruceDesde == null ? 'Los pares diagonal y trasero no se cruzan en la vista lateral.' : `A partir de ${fmt(v.cruceDesde, 0)}° los pares diagonal y trasero se cruzan <em>solo en la vista lateral</em>: van en planos distintos (diagonal por dentro, trasero por fuera), así que entre ellos no se tocan.`}</li></ul></section>
       <section class="panel vl"><h3>3. Nivel ISO 10328 para el peso elegido</h3>
         <p>Para ${fmt(M.usuario.pesoKg, 0)} kg corresponde el nivel <strong>${nivel}</strong>${datos ? ` (usuarios de hasta ${datos.masaKg} kg). Fuerzas usadas, condición I / II: prueba ${datos.I.prueba} / ${datos.II.prueba} N, última ${datos.I.ultimaSup} / ${datos.II.ultimaSup} N, cíclica ${datos.I.ciclica} / ${datos.II.ciclica} N, ${fmt(iso.ciclos / 1e6, 0)} millones de ciclos.` : '. Sus fuerzas no están cargadas en la simulación.'}</p>
         <p class="ayuda">Paciente de diseño de ${d.masaPacienteKg} kg ⇒ P4. Capacidad de diseño de ${fmt(M.capacidadDisenoKg, 1)} kg ⇒ P5. El resultado de cada nivel está en la pestaña Normas. ${app_.chipNorma('iso-10328', 'Nivel ' + nivel)}</p></section>
@@ -83,23 +81,21 @@ function pintar() {
     </div>
     <h3 class="nm-grupo" style="margin-top:28px">4. Supuestos que se pueden corregir</h3>
     <div class="panel tabla-desliza"><table><thead><tr><th>Supuesto</th><th>Valor usado</th><th>Dónde se cambia</th></tr></thead><tbody>
-      <tr><td>Geometría de las piezas</td><td>Real: perfiles, barrenos y espesores tomados del STEP de SolidWorks (volúmenes dentro del 3 %)</td><td><code>config.js → geometria</code></td></tr>
-      <tr><td>Eslabón interior</td><td class="estimado">Corregido a ${CONFIG.geometria.eslabones.interior.centros} mm (SolidWorks: ${CONFIG.geometria.eslabones.interior.centrosOriginal} mm). Ver el diagnóstico</td><td><code>config.js → geometria.eslabones</code></td></tr>
-      <tr><td>Chaflán de la placa del AFS1</td><td class="estimado">${CONFIG.geometria.correcciones.chaflanPlacaAFS1} × 45°, añadido para llegar a 135°</td><td><code>config.js → geometria.correcciones</code></td></tr>
-      <tr><td>Tope de extensión</td><td class="estimado">Tornillo ${CONFIG.geometria.correcciones.tope.rosca} añadido, apoyado en la ceja; el diseño original no tenía tope</td><td><code>config.js → geometria.correcciones.tope</code></td></tr>
-      <tr><td>Material de los ejes</td><td class="estimado">${CONFIG.geometria.ejes.material} (los planos no lo indican). Con Ø5 en aluminio los ejes no aguantarían</td><td><code>config.js → geometria.ejes</code></td></tr>
+      <tr><td>Geometría de las piezas</td><td>Real: STL de SolidWorks (Ensamblaje1) sin modificar; centros de ejes dentro de 0.01 mm</td><td><code>config.js → geometria</code></td></tr>
+      <tr><td>Tope de extensión escondido</td><td class="estimado">Taco de ${CONFIG.geometria.topeOculto.fondo} mm bajo la placa del AFS1, R${CONFIG.geometria.topeOculto.radio}, apoyo a ${CONFIG.geometria.topeOculto.anguloGrados}°. Propuesto por la simulación: falta dibujarlo en SolidWorks</td><td><code>config.js → geometria.topeOculto</code></td></tr>
+      <tr><td>Material de los ejes</td><td>6061-T6, igual que el reporte de SolidWorks (antes se suponía acero)</td><td><code>config.js → geometria.ejes</code></td></tr>
       <tr><td>Retención de los ejes</td><td class="estimado">No está en SolidWorks: hacen falta anillos o prisioneros</td><td>—</td></tr>
-      <tr><td>Peso de la rodilla</td><td>${M.masa ? fmt(M.masa.totalG, 0) + ' g calculados' : 'pendiente'} (incluye unos ${M.masa ? fmt(M.masa.porPieza.tope, 0) : '—'} g del tornillo de tope) contra ${d.pesoRodillaG} g del equipo</td><td>Sale del STEP</td></tr>
-      <tr><td>Pistón neumático</td><td class="estimado">Minicilindro Ø16 entre el Eje superior (B) y el Eje inferior (D), como dice el documento; presión supuesta de 6 bar</td><td><code>config.js → piston</code></td></tr>
+      <tr><td>Peso de la rodilla</td><td>${M.masa ? fmt(M.masa.totalG, 0) + ' g' : 'pendiente'}: masas del reporte de SolidWorks (${CONFIG.diseno.pesoRodillaG} g) + ${M.masa ? fmt(M.masa.topeG, 0) : '—'} g del tope escondido${M.masa && !M.masa.deSolidWorks ? ', escalado por densidad al material elegido' : ''}</td><td><code>config.js → solidworks.masasKg</code></td></tr>
+      <tr><td>Pistón neumático</td><td class="estimado">Minicilindro Ø16 entre el eje B (AFS1) y el eje D (adaptador inferior); falta confirmar con los nombres nuevos de los ejes; presión supuesta de 6 bar</td><td><code>config.js → piston</code></td></tr>
       <tr><td>Centro de referencia de la rodilla</td><td class="estimado">20 mm detrás del eje del pilón y 55 mm sobre el adaptador inferior; los torques se miden respecto a ese punto</td><td><code>config.js → geometria.origenRodillaY</code></td></tr>
       <tr><td>Torque de referencia de 274.2 N·m</td><td>Límite de diseño del equipo. Equivale a 65 kg × 9.81 × 0.43 m; los torques de la marcha simulada son mucho menores</td><td><code>config.js → diseno</code></td></tr>
       <tr><td>Factores de carga por actividad</td><td>De pie 0.5; marcha ${CONFIG.nivelesK.K1.cargaMarcha}–${CONFIG.nivelesK.K4.cargaMarcha}; subir 1.1; bajar 1.5; impacto ${CONFIG.nivelesK.K1.cargaImpacto}–${CONFIG.nivelesK.K4.cargaImpacto} × peso</td><td><code>config.js → nivelesK, factoresCarga</code></td></tr>
       <tr><td>Velocidad, cadencia y flexión por nivel K</td><td class="estimado">Valores típicos estimados; la clasificación K no fija números</td><td><code>config.js → nivelesK</code></td></tr>
       <tr><td>Movimientos de cada escenario</td><td class="estimado">Posturas clave interpoladas, no captura de movimiento. Curvas sanas aproximadas de Winter y Perry</td><td><code>escenarios.js, datosMarcha.js</code></td></tr>
-      <tr><td>Propiedades del aluminio</td><td>Mínimos de ASTM B221: 6061-T6 240/260 MPa, 7075-T6 485/540 MPa (fluencia/última)</td><td><code>config.js → materiales</code></td></tr>
+      <tr><td>Propiedades del aluminio</td><td>6061-T6: las del reporte de SolidWorks (275/310 MPa, E = 69 GPa). <span class="estimado">7075-T6: tablas (485/540 MPa), sin estudio de SolidWorks</span></td><td><code>config.js → materiales</code></td></tr>
       <tr><td>Plástico del prototipo</td><td class="estimado">Supuesto: PLA, 20 % de relleno, escala 1:1, fluencia efectiva 22 MPa. Falta que el equipo lo confirme</td><td><code>config.js → materiales.prototipo-3d</code></td></tr>
       <tr><td>Fuerzas y desplazamientos de ISO 10328</td><td class="estimado">Transcritos de literatura secundaria; desplazamientos del nivel P5 para todos los niveles; análisis solo en el plano sagital</td><td><code>config.js → iso10328</code></td></tr>
-      <tr><td>Modelo de esfuerzos</td><td>Estática plana con vigas y pernos; sin concentradores salvo en fatiga; no es FEA</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Modelo de esfuerzos</td><td>Estática plana con vigas y pernos, con el tope escondido; no es FEA. Los resultados FEA reales son los de SolidWorks (pestaña SolidWorks)</td><td><code>cargas.js</code></td></tr>
       <tr><td>Muñón y altura de rodilla</td><td>La rodilla real mide ${fmt(M.ens.alturaTotal / 10, 1)} cm de alto; con muñón de ${fmt(M.seg.munon / 10, 1)} cm y muslo de ${fmt(M.seg.muslo / 10, 1)} cm no cabe completa, así que la simulación iguala la altura de ambas rodillas y acorta el socket</td><td><code>config.js → antropometria</code></td></tr>
       <tr><td>Parte distal en balanceo</td><td class="estimado">${CONFIG.distal.masaDistalKg} kg (base, pilón y pie); aceleraciones acotadas a 25 m/s²</td><td><code>config.js → distal</code></td></tr>
     </tbody></table></div>
@@ -112,17 +108,19 @@ function pintar() {
       <tr><td>Segmentos del cuerpo</td><td>Longitud = coeficiente × estatura (muslo 0.245, pierna 0.246, pie 0.152…); masa = fracción × peso</td><td>${app_.chipNorma('winter')}${app_.chipNorma('dempster')}</td><td><code>antropometria.js</code></td></tr>
       <tr><td>Reacción del suelo</td><td>R = f · m · g, con f según la actividad</td><td>${app_.chipNorma('winter')}${app_.chipNorma('perry')} y artículos citados en <code>config.js → factoresCarga</code></td><td><code>escenarios.js</code></td></tr>
       <tr><td>Torque en la rodilla</td><td>M = R · d (fuerza por brazo de palanca)</td><td>${app_.chipNorma('beer')}</td><td><code>cargas.js</code></td></tr>
-      <tr><td>Fuerzas en las barras y el tope</td><td>F₁·u₁ + F₂·u₂ + F<sub>tope</sub>·n = R y ΣM = 0 (barras de dos fuerzas, sistema 3 × 3)</td><td>${app_.chipNorma('beer')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Fuerzas en las barras y el tope</td><td>Sin tope: F₁·u₁ + F₂·u₂ = R (barras de dos fuerzas). Con tope: pierna (fuerza en D y F₂) y luego ΣM<sub>A</sub> = 0 en el eslabón diagonal para F<sub>tope</sub></td><td>${app_.chipNorma('beer')}</td><td><code>cargas.js</code></td></tr>
       <tr><td>Peso e inercia en balanceo</td><td>F = −m·(g + a), principio de D'Alembert</td><td>${app_.chipNorma('winter')}</td><td><code>modelo.js</code></td></tr>
       <tr><td>Cortante en pernos</td><td>τ = F / (2 · π·d²/4), cortante doble</td><td>${app_.chipNorma('shigley')}</td><td><code>cargas.js</code></td></tr>
-      <tr><td>Flexión del perno</td><td>M = F·(L/4 − b/8); σ = 32·M / (π·d³)</td><td>${app_.chipNorma('shigley')}</td><td><code>cargas.js</code></td></tr>
-      <tr><td>Barras laterales</td><td>Sección neta σ = N / ((w − d)·t); aplastamiento σ = N / (d·t)</td><td>${app_.chipNorma('shigley')}</td><td><code>cargas.js</code></td></tr>
-      <tr><td>Tubo receptor y anillo</td><td>σ = M·c / I + N / A, con I = π(D⁴ − d⁴)/64</td><td>${app_.chipNorma('beer')}</td><td><code>cargas.js</code></td></tr>
-      <tr><td>Placas (base y adaptador)</td><td>σ = 6·M / (b·t²), viga entre los dos porta-ejes</td><td>${app_.chipNorma('beer')} · el factor de tramo libre (1 − huella/claro) es <strong>criterio propio</strong></td><td><code>cargas.js</code></td></tr>
+      <tr><td>Flexión del perno</td><td>M = (F/2)·(t/2 + pared/2); σ = 32·M / (π·d³)</td><td>${app_.chipNorma('shigley')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Barras laterales</td><td>Sección neta σ = N / ((w − d)·t); aplastamiento σ = N / (d·t); con tope, flexión σ = 6·M / (t·w²)</td><td>${app_.chipNorma('shigley')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Placa del AFS1</td><td>σ = M·c / I con M = F·L/4 (claro entre paredes) y la sección real con la ranura</td><td>${app_.chipNorma('beer')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Base del adaptador inferior</td><td>σ = 6·M / (b·t²), voladizo de la pared al cilindro</td><td>${app_.chipNorma('beer')}</td><td><code>cargas.js</code></td></tr>
+      <tr><td>Contacto en el tope escondido</td><td>Presión triangular sobre los dos cantos: σ<sub>pico</sub> = 2·F / (2·t·L<sub>apoyo</sub>)</td><td><strong>Criterio propio</strong></td><td><code>cargas.js</code></td></tr>
+      <tr><td>Escalado de SolidWorks</td><td>Estudio lineal ⇒ σ = k·F con k = 87.81/736 = 262.5/2200 = 0.1193 MPa/N</td><td>Reporte de SolidWorks</td><td><code>cargas.js → solidworksPara</code></td></tr>
       <tr><td>Factor de seguridad</td><td>FS = fluencia / esfuerzo máximo; cortante equivalente √3·τ (von Mises)</td><td>${app_.chipNorma('shigley')}${app_.chipNorma('astm-b221-b211')}</td><td><code>cargas.js</code></td></tr>
       <tr><td>Fatiga</td><td>1/n = σ<sub>a</sub>/S<sub>e</sub> + σ<sub>m</sub>/S<sub>ut</sub> (Goodman), con K<sub>t</sub> = ${CONFIG.iso10328.concentracionEsfuerzo} en el barreno</td><td>${app_.chipNorma('shigley')}${app_.chipNorma('iso-10328')}</td><td><code>cargas.js</code></td></tr>
       <tr><td>Prueba ISO simulada</td><td>Fuerzas de prueba, última y cíclica sobre la línea de carga de talón y de antepié</td><td>${app_.chipNorma('iso-10328')}</td><td><code>cargas.js</code></td></tr>
-      <tr><td>Peso de la rodilla</td><td>m = Σ volumen × densidad</td><td>${app_.chipNorma('astm-b221-b211')}</td><td><code>piezas.js</code></td></tr>
+      <tr><td>Peso de la rodilla</td><td>Masas del reporte de SolidWorks; para otro material m = (m<sub>SW</sub>/ρ<sub>6061</sub>) × ρ</td><td>Reporte de SolidWorks</td><td><code>piezas.js</code></td></tr>
       <tr><td>Torque de referencia</td><td>274.2 N·m = 65 kg × 9.81 m/s² × 0.43 m</td><td>Dato del equipo</td><td><code>config.js</code></td></tr>
       <tr><td>Equivalencia con el prototipo</td><td>F<sub>prototipo</sub> = F · (fluencia del plástico / fluencia del aluminio) · escala²</td><td><strong>Criterio propio</strong> por semejanza: mismo porcentaje de la fluencia en ambos</td><td><code>main.js</code></td></tr>
     </tbody></table></div>`;

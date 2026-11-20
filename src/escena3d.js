@@ -3,6 +3,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { bytesSTL } from './recursos.js';
+import { piezasEnChoque, limitesChoque } from './interferencias.js';
 import { CONFIG } from './config.js';
 import { aMundo, rot, sum, esc, res, unit, norma } from './mat.js';
 import { rgbEsfuerzo, COLOR_MATERIAL } from './colores.js';
@@ -23,6 +26,21 @@ export function geometriaCuerpo(c) {
   const g = new THREE.ExtrudeGeometry(forma, { depth: c.a1 - c.a0, bevelEnabled: false, curveSegments: 20 });
   if (c.eje === 'y') { g.rotateX(-Math.PI / 2); g.translate(0, c.a0, 0); } else g.translate(0, 0, c.a0);
   return g;
+}
+
+// STL original de una pieza, llevado (traslación y giro rígidos, sin tocar medidas) al marco de su cuerpo a 0°.
+const cacheSTL = {};
+function geometriaSTL(pz, M) {
+  const clave = pz.stl + '|' + pz.cuerpo;
+  if (cacheSTL[clave]) return cacheSTL[clave];
+  const buf = bytesSTL(pz.stl);
+  if (!buf) return null;
+  const g = new STLLoader().parse(buf);
+  const ens = M.ens, s0 = M.mec.resolver(0), T = ens.deSTL([0, 0]);
+  const pose0 = { muslo: { ang: 0, t: [0, 0] }, pierna: { ang: 0, t: [0, 0] }, c1: { ang: s0.phi1, t: s0.D }, c2: { ang: s0.phi2, t: s0.C } }[pz.cuerpo];
+  g.translate(T[0] - pose0.t[0], T[1] - pose0.t[1], -CONFIG.geometria.stl.zCentro);
+  g.rotateZ(-pose0.ang);
+  return (cacheSTL[clave] = g);
 }
 
 export const colorEsfuerzo = (uso) => new THREE.Color(...rgbEsfuerzo(uso));
@@ -130,7 +148,11 @@ export function crearEscena(contenedor) {
     mallas = {};
     for (const pz of M.piezas) {
       const g = new THREE.Group();
-      for (const cu of pz.cuerpos) g.add(new THREE.Mesh(geometriaCuerpo(cu), pz.material === 'acero' ? mats.acero.clone() : mats.aluminio()));
+      const gs = pz.stl ? geometriaSTL(pz, M) : null;
+      if (gs) {
+        g.add(new THREE.Mesh(gs, mats.aluminio()));
+        for (const cu of pz.cuerpos.filter((c) => c.tope)) { const m = new THREE.Mesh(geometriaCuerpo(cu), mats.aluminio()); m.userData.tope = true; g.add(m); }
+      } else for (const cu of pz.cuerpos) g.add(new THREE.Mesh(geometriaCuerpo(cu), mats.aluminio()));
       g.userData.pieza = pz;
       marcos[pz.cuerpo].add(g);
       mallas[pz.id] = g;
@@ -274,14 +296,17 @@ export function crearEscena(contenedor) {
 
     // --- despiece, transparencia y mapa de esfuerzos ---
     const fd = ver.despiece || 0;
+    // Piezas que chocan en este ángulo (con los STL tal cual): se pintan en rojo.
+    const choque = inst.theta > limitesChoque().flexionLibre - 0.05 ? piezasEnChoque(inst.theta) : new Set();
     for (const pz of M.piezas) {
       const g = mallas[pz.id];
       g.position.set(pz.despiece[0] * fd, pz.despiece[1] * fd, pz.despiece[2] * fd);
       const e = inst.cargas.esfuerzos[pz.id];
       g.children.forEach((m) => {
-        if (ver.color === 'esfuerzo' && e && e.uso != null) { m.material.color.copy(colorEsfuerzo(e.uso)); m.material.metalness = 0.25; m.material.roughness = 0.6; }
-        else if (ver.color === 'material') { m.material.color.setRGB(...COLOR_MATERIAL[pz.material === 'acero' ? 'acero' : M.materialId].rgb); m.material.metalness = M.materialId === 'prototipo-3d' ? 0 : 0.5; m.material.roughness = 0.55; }
-        else if (pz.material === 'acero') { m.material.color.set(0x70757d); m.material.metalness = 1; m.material.roughness = 0.3; }
+        m.material.emissive?.set(0x000000);
+        if (choque.has(pz.id) && !m.userData.tope) { m.material.color.set(0xd2342a); m.material.emissive.set(0x5a0d08); m.material.metalness = 0.2; m.material.roughness = 0.6; }
+        else if (ver.color === 'esfuerzo' && e && e.uso != null) { m.material.color.copy(colorEsfuerzo(e.uso)); m.material.metalness = 0.25; m.material.roughness = 0.6; }
+        else if (ver.color === 'material') { m.material.color.setRGB(...COLOR_MATERIAL[M.materialId].rgb); m.material.metalness = M.materialId === 'prototipo-3d' ? 0 : 0.5; m.material.roughness = 0.55; }
         else if (M.materialId === 'prototipo-3d') { m.material.color.set(0xe9e4dc); m.material.metalness = 0; m.material.roughness = 0.8; }
         else { m.material.color.set(0xc9ccd1); m.material.metalness = 0.9; m.material.roughness = 0.34; }
       });

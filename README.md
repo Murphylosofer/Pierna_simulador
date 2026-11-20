@@ -22,9 +22,12 @@ Al hacer push a la rama principal, `.github/workflows/pages.yml` compila y publi
 
 ## Cómo actualizar las medidas
 
-La geometría de la rodilla ya es la del ensamble de SolidWorks del equipo (`src/config.js → geometria`), con tres
-correcciones documentadas para que funcione. Para cambiar una medida o el plástico del prototipo solo se edita `src/config.js`.
-La vista 3D, los cálculos, la figura isométrica y los planos se regeneran solos.
+La geometría de la rodilla es la de los STL de SolidWorks del equipo (`ESTUDIOS y STL/STL Rodilla`), que la vista 3D
+dibuja tal cual; sus medidas están en `src/config.js → geometria`, con una sola modificación: el tope de extensión
+escondido. Los resultados de SolidWorks Simulation están en `src/config.js → solidworks`. Para cambiar una medida o el
+plástico del prototipo solo se edita `src/config.js`. Los cálculos, la figura isométrica y los planos se regeneran solos.
+Si cambian los STL, hay que reemplazar los archivos en `ESTUDIOS y STL/STL Rodilla` (mismos nombres) y revisar
+`config.js` (ver `REPORTE.md`).
 
 `dist/index.html` es un único archivo autocontenido. La simulación no es una certificación:
 la prótesis necesita pruebas físicas bajo ISO 10328 y registro sanitario ante COFEPRIS.
