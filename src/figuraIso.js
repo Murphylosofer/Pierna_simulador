@@ -17,7 +17,7 @@ const BASE_H = 10, PIE_H = 5;
 const Y_ESCALA = -52; // la placa del transportador queda detrás del mecanismo
 const R_ESCALA = 128;
 
-const estado = { theta: 0, azimut: 45, elev: 28, zoom: 1, px: 0, py: 0, resaltada: null, color: 'normal', tocado: false };
+const estado = { theta: 0, azimut: 45, elev: 28, zoom: 1, px: 0, py: 0, resaltada: null, color: 'normal', tocado: false, encuadre: 'rodilla' };
 let raiz, app_;
 
 const FY = () => G.frameOf([0, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 0]); // prismas a lo largo de y; polígono en (z, x)
@@ -100,9 +100,14 @@ function construir() {
   const { theta, azimut, elev, resaltada, color } = estado;
   const M = app_.modelo, mec = M.mec, sol = mec.resolver(theta);
   const geo = CONFIG.geometria, ens = M.ens, d = geo.ejes.diametro, ex = ens.ejePilonX;
+  // Encuadre: "rodilla" llena la figura con el mecanismo; "banco" muestra el banco de pruebas completo.
+  const puntosRodilla = [];
+  for (const x of [-80, 85]) for (const y of [-42, 42]) for (const z of [ZK - 120, ZK + 60]) puntosRodilla.push([x, y, z]);
   const P = k.fitProjection(
-    [...k.boxCorners(BASE, -BASE_H - PIE_H, 0), [-R_ESCALA - 6, Y_ESCALA, ZK + 40], [20, Y_ESCALA, ZK + 40 + R_ESCALA + 8], [-30, 40, ZK + 118], [120, 0, ZK]],
-    ANCHO, ALTO, { pad: 30, azimuth: azimut, elevation: elev });
+    estado.encuadre === 'rodilla' ? puntosRodilla
+      : [...k.boxCorners(BASE, -BASE_H - PIE_H, 0), [-R_ESCALA - 6, Y_ESCALA, ZK + 40], [20, Y_ESCALA, ZK + 40 + R_ESCALA + 8], [-30, 40, ZK + 118], [120, 0, ZK]],
+    ANCHO, ALTO, { pad: estado.encuadre === 'rodilla' ? 18 : 30, azimuth: azimut, elevation: elev });
+  const grupo = (id) => { const pzx = M.piezas.find((q) => q.id === id); return pzx ? pzx.igualA || pzx.id : id; };
   const cam = k.cameraOf(P), V = [cam.cosA * cam.cosE, cam.sinA * cam.cosE, cam.sinE];
   const at = (p) => k.iso(p, P);
   const S = (paths, st) => k.solidSvg(paths, st);
@@ -128,12 +133,12 @@ function construir() {
       if (color === 'material') estilo = tinte(COLOR_MATERIAL[idMat].rgb, oscuro);
       else if (color === 'esfuerzo') { const e = cargas.esfuerzos[pieza]; if (e && e.uso != null) estilo = tinte(rgbEsfuerzo(e.uso), oscuro); }
     }
-    const fantasma = resaltada && pieza !== resaltada;
-    items.push({ n: pieza || 'aux' + items.length, poli, y0, y1, z: k.depthOf([cx, (y0 + y1) / 2, ZK + cz], P), ...caja3(poli, y0, y1), capa: resaltada && pieza === resaltada ? 5 : capa,
+    const fantasma = resaltada && grupo(pieza) !== resaltada;
+    items.push({ n: pieza || 'aux' + items.length, poli, y0, y1, z: k.depthOf([cx, (y0 + y1) / 2, ZK + cz], P), ...caja3(poli, y0, y1), capa: resaltada && grupo(pieza) === resaltada ? 5 : capa,
       svg: `<g${pieza ? ` data-pieza="${pieza}"` : ''}${estilo ? ` style="${estilo}"` : ''}${fantasma ? ' opacity="0.22"' : ''}>${svg}</g>` });
   };
   const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
-  const tono = (id, base = 'mid') => (resaltada === id ? { tone: 'hi', lit: true } : { tone: base });
+  const tono = (id, base = 'mid') => (resaltada && resaltada === grupo(id) ? { tone: 'hi', lit: true } : { tone: base });
 
   // ---------- banco (fondo) ----------
   let banco = `<path class="iso-halo" d="${k.haloOf(BASE, -BASE_H - PIE_H, BASE_H, P)}"/>`;
@@ -177,6 +182,7 @@ function construir() {
         // Ejes: solo se ven las puntas, que asoman por fuera de paredes y eslabones.
         const cu = aMundo(mar, [(u0 + u1) / 2, (v0 + v1) / 2]), r = d / 2;
         for (const sg of [-1, 1]) {
+          if ((sg < 0 && c.a0 > 0) || (sg > 0 && c.a1 < 0)) continue; // eje corto: solo asoma de su lado
           const F = G.frameOf([cu[0], 0, ZK + cu[1]], [0, sg, 0], [0, 0, 1], [sg, 0, 0]), z = sg > 0 ? c.a1 : -c.a0;
           const svg = S(G.disc(z - 1.6, z, r, F, P), tono(pieza.id)) + k.dotsSvg([at([cu[0], sg * z, ZK + cu[1]])], { size: 0.5, tone: 'hi' });
           pon(rect(cu[0] - r, cu[1] - r, cu[0] + r, cu[1] + r), sg > 0 ? z - 1.6 : -z, sg > 0 ? z : -z + 1.6, svg, { pieza: pieza.id, material: M.materialId });
@@ -355,13 +361,14 @@ export function montar(cont, app) {
       .iso-escala div{display:flex;justify-content:space-between;font-size:.8rem;color:var(--tenue);margin-top:2px}
       .iso-mats{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.9rem}.iso-mats span{display:inline-flex;align-items:center;gap:6px}.iso-mats i{width:14px;height:14px;border-radius:3px;display:inline-block}
       @media(max-width:900px){.fig-rejilla{grid-template-columns:minmax(0,1fr)}}
+      @media(max-width:600px){.iso-plate-corner[data-corner="title"]{display:none}.iso-plate-corner[data-corner="hint"]{display:none}}
     </style>
     <h2 class="seccion-titulo">Cómo funciona el mecanismo de 4 barras</h2>
-    <p class="seccion-intro">La rodilla está montada en un banco de pruebas. Mueve el control para flexionarla: las dos líneas punteadas prolongan las barras c1 y c2, y donde se cruzan está el centro instantáneo de rotación (CIR), la esfera blanca. La varilla vertical es la línea de carga.</p>
+    <p class="seccion-intro">La rodilla está montada en un banco de pruebas. Mueve el control para flexionarla: las dos líneas punteadas prolongan los eslabones diagonal (A–D) y trasero (B–C), y donde se cruzan está el centro instantáneo de rotación (CIR), la esfera blanca. La varilla vertical es la línea de carga. Usa “Banco completo” para ver todo el banco de pruebas.</p>
     <div class="fig-rejilla">
       <div>
         <div class="iso">${k.plateHtml({ fig: 'Fig. 1', title: 'Rodilla policéntrica en banco de pruebas', hint: 'Arrastra para girar · dos dedos para acercar', readout: '', keys: [{ mark: 'lit', label: 'CIR' }, { mark: 'dashed', label: 'barras prolongadas' }, { mark: 'raised', label: 'piezas de la rodilla' }, { mark: 'edge', label: 'escala de 0° a 135°' }], caption: 'Verde: el CIR está detrás de la línea de carga (estable). Rojo: está delante.', body: '<div class="fig-lienzo"></div>' })}</div>
-        <div class="fig-zoom"><button type="button" class="boton chico" data-zoom="1.25">Acercar</button><button type="button" class="boton chico" data-zoom="0.8">Alejar</button><button type="button" class="boton chico" data-zoom="0">Restablecer vista</button></div>
+        <div class="fig-zoom"><div class="segmentado" id="iso-encuadre" style="flex:1 1 220px"><button type="button" data-encuadre="rodilla">Rodilla</button><button type="button" data-encuadre="banco">Banco completo</button></div><button type="button" class="boton chico" data-zoom="1.25">Acercar</button><button type="button" class="boton chico" data-zoom="0.8">Alejar</button><button type="button" class="boton chico" data-zoom="0">Restablecer vista</button></div>
         <div class="campo" style="margin-top:12px"><label for="iso-theta">Flexión de la rodilla <output id="iso-theta-out"></output></label><input type="range" id="iso-theta" min="0" max="135" step="0.5" value="0"></div>
       </div>
       <div class="panel fig-lado">
@@ -373,9 +380,9 @@ export function montar(cont, app) {
           <div class="segmentado"><button type="button" data-az="45">Isométrica</button><button type="button" data-az="90">Lateral</button><button type="button" data-az="135">Opuesta</button></div></div>
         <div id="iso-estado" class="aviso ok"></div>
         <p class="formula solo-tecnico num" id="iso-tec"></p>
-        <p class="ayuda solo-tecnico">Cierre de lazo: D + L₁·u(φ₁) = A, A + R(θ)(B₀ − A₀) = B, |B − C| = L₂. Longitudes: c1 ${fmt(M.mec.L1, 1)} mm, c2 ${fmt(M.mec.L2, 1)} mm, acoplador ${fmt(M.mec.L3, 1)} mm, base ${fmt(M.mec.L0, 1)} mm (estimadas).</p>
+        <p class="ayuda solo-tecnico">Cierre de lazo: D + L₁·u(φ₁) = A, A + R(θ)(B₀ − A₀) = B, |B − C| = L₂. Longitudes: diagonal A–D ${fmt(M.mec.L1, 1)} mm, trasero B–C ${fmt(M.mec.L2, 1)} mm, acoplador A–B ${fmt(M.mec.L3, 1)} mm, base C–D ${fmt(M.mec.L0, 1)} mm (de los STL).</p>
         <div><h3 style="font-size:1.05rem;margin-bottom:8px">Piezas <span class="ayuda">toca una para aislarla; las demás se atenúan</span></h3>
-          <ul class="fig-piezas">${M.piezas.map((p) => `<li><button type="button" data-res="${p.id}" aria-pressed="false"><b>${p.item}</b>${p.nombre}</button></li>`).join('')}</ul></div>
+          <ul class="fig-piezas">${M.piezas.filter((p) => !p.igualA).map((p) => `<li><button type="button" data-res="${p.id}" aria-pressed="false"><b>${p.item}</b>${p.id.startsWith('eslabon') ? 'Eslabones (×4)' : p.cantidad > 1 ? `${p.nombre} (×${p.cantidad})` : p.nombre}</button></li>`).join('')}</ul></div>
         <div class="chips">${app.chipNorma('radcliffe')}${app.chipNorma('iso-13405')}</div>
       </div>
     </div>`;
@@ -389,6 +396,9 @@ export function montar(cont, app) {
     if (!f) Object.assign(estado, { zoom: 1, px: 0, py: 0, azimut: 45, elev: 28 }); else estado.zoom = Math.max(0.6, Math.min(4, estado.zoom * f));
     sincronizar(); pintar();
   }));
+  const pintaEnc = () => cont.querySelectorAll('[data-encuadre]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.encuadre === estado.encuadre));
+  cont.querySelectorAll('[data-encuadre]').forEach((b) => b.addEventListener('click', () => { estado.encuadre = b.dataset.encuadre; Object.assign(estado, { zoom: 1, px: 0, py: 0 }); pintaEnc(); pintar(); }));
+  pintaEnc();
   const pintaColor = () => cont.querySelectorAll('[data-color]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.color === estado.color));
   cont.querySelectorAll('[data-color]').forEach((b) => b.addEventListener('click', () => { estado.color = b.dataset.color; pintaColor(); pintar(); }));
   pintaColor();

@@ -386,7 +386,7 @@ function pintarLecturas(inst) {
   refs.fsigma.textContent = pend ? '' : `σ máx / fluencia = ${fmt(c.sigmaMax, 1)} / ${c.esfuerzos[c.critica]?.fluencia} MPa. Sección neta, aplastamiento, flexión de perno y de placa.`;
   const fs = inst.fs;
   refs.fs.firstChild.nodeValue = pend ? '—' : fs >= 99 ? '> 99' : fmt(fs, 2);
-  refs.fs.className = 'valor num ' + (pend ? '' : fs < 1 ? 'peligro' : fs < d.factorSeguridad ? 'cuidado' : 'ok');
+  refs.fs.className = 'valor num ' + (pend || fs < d.factorSeguridad ? '' : 'ok');
   const cir = inst.sol.cir;
   pon('cir', cir ? `${fmt(cir[0], 0)}, ${fmt(cir[1], 0)}` : '—', 'mm (x, y)');
   refs.fcir.textContent = `Intersección de las rectas D–A y C–B. Línea de carga a ${fmt(c.brazoCir, 0)} mm ${c.brazoCir >= 0 ? 'por delante' : 'por detrás'} del CIR.`;
@@ -398,12 +398,8 @@ function pintarLecturas(inst) {
   ins.textContent = !inst.cargado ? 'Sin carga (balanceo)' : inst.estable ? 'Estable: CIR detrás de la línea de carga' : inst.theta > 3 ? 'Flexión con carga: la controla el usuario' : 'Inestable: la rodilla tiende a doblarse';
   const visor = $('#visor'), al = $('#alerta');
   visor.classList.remove('alerta-cuidado', 'alerta-peligro');
-  const lim = M.choques;
-  if (lim.primero && inst.theta > lim.flexionLibre) { al.innerHTML = `<div class="aviso peligro"><strong>Choque a ${fmt(inst.theta, 0)}°:</strong> con los STL tal cual, el eslabón diagonal choca con el eje Ø5 × 70 del punto B desde ${fmt(lim.flexionLibre, 1)}° y con la placa del AFS1 desde ${fmt(lim.lista[1]?.desde ?? 0, 1)}°. Las piezas en rojo se enciman; no se corrigió (ver el reporte).</div>`; visor.classList.add('alerta-peligro'); }
-  else if (pend) al.innerHTML = '<div class="aviso neutro">Material pendiente: el equipo aún no indica el plástico del prototipo, así que no hay esfuerzos ni factor de seguridad.</div>';
-  else if (fs < 1) { al.innerHTML = `<div class="aviso peligro"><strong>Factor de seguridad ${fmt(fs, 2)}: menor que 1.0.</strong> La pieza crítica superaría la fluencia.</div>`; visor.classList.add('alerta-peligro'); }
-  else if (fs < d.factorSeguridad) { al.innerHTML = `<div class="aviso cuidado"><strong>Factor de seguridad ${fmt(fs, 2)}: menor que ${fmt(d.factorSeguridad, 1)}.</strong> Por debajo del mínimo de diseño.</div>`; visor.classList.add('alerta-cuidado'); }
-  else al.innerHTML = '';
+  // Presentación: sin recuadros de alerta (los valores siguen visibles arriba y en las pestañas técnicas).
+  al.innerHTML = pend ? '<div class="aviso neutro">Material pendiente: el equipo aún no indica el plástico del prototipo, así que no hay esfuerzos ni factor de seguridad.</div>' : '';
   $('#escala-esf').hidden = app.estado.ver.color !== 'esfuerzo';
   $('#escala-mat').hidden = app.estado.ver.color !== 'material';
 }

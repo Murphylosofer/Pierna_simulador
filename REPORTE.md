@@ -1,4 +1,56 @@
-# Reporte: actualización con los STL y los estudios de SolidWorks (20-nov-2026)
+# Reporte de la rodilla (20-nov-2026)
+
+## Versión ajustada para la presentación (la que está publicada)
+
+Pedido del equipo: que la rodilla llegue a 135° y que no aparezcan alertas, cambiando lo menos posible.
+Todo se controla en `src/config.js`:
+
+| Ajuste | Dónde | Para volver a la versión fiel |
+|---|---|---|
+| Dos ranuras traseras en la placa del AFS1 | `geometria.recortes` | `recortes.activos: false` |
+| Eje de 70 mm de B partido en dos ejes cortos | `geometria.recortes.ejeB` | `recortes.activos: false` |
+| Ejes de acero 8.8 (misma forma) | `geometria.ejes.acero` | `acero: false` |
+| Sin recuadros rojos de alerta en la simulación | `src/main.js → pintarLecturas` | volver al commit `a93e866` |
+
+La versión fiel completa (STL tal cual, con avisos) es el commit `a93e866` (etiqueta local `v-fiel-stl`):
+`git checkout a93e866`.
+
+Con los ajustes la rodilla se dobla **libre de 0° a 135°**: revisado con las mallas STL ajustadas cada 2.5°
+(`scripts/recortes_stl.py`) y con los prismas cada 0.1° (primer contacto a 138.7°). El tope escondido sigue
+deteniendo la rodilla a 0°.
+
+### Qué hacer en SolidWorks (para el estudio de movimiento)
+
+Los STL ya recortados están en `ESTUDIOS y STL/STL Rodilla ajustada/` para usarlos como referencia
+(el AFS1 ajustado ya incluye el tope escondido). Coordenadas en el marco propio del AFS1 (x hacia adelante,
+y hacia arriba; el eje B está en x = −55.182, y = 3.357 y el eje A en x = −28.056, y = 8.357).
+
+1. **AFS1 · dos ranuras traseras** (corte extruido, una por lado):
+   - Croquis en la vista lateral: una recta que va de la **cara superior en x = −47.0** (8.2 mm delante del eje B)
+     al **fondo de la placa en x = −27.5** (0.56 mm delante del eje A). Queda a 25.1° de la horizontal.
+     Se quita todo lo que está **detrás y abajo** de esa recta, incluido el labio trasero de la placa.
+   - Profundidad: **5.5 mm**, desde la cara interior de cada pared hacia el centro (de z = ±23.5 a z = ±18.0).
+     Las paredes no se tocan, así que de lado no se ve; desde arriba se ven dos muescas atrás, junto a las paredes.
+   - Quita ≈ 2.0 cm³ (≈ 5.4 g de 6061).
+2. **Eje B:** en lugar del eje Ø5 × 70 ("Eslabon2") van **dos ejes Ø5 × 11.5**, uno por lado. Cada uno atraviesa
+   el eslabón trasero (5 mm) y la pared (4 mm) y sobresale 2.5 mm por fuera, como antes; termina al ras de la cara
+   interior de la pared. El eje C se queda de 70 mm.
+3. **Tope escondido:** taco entre las paredes, bajo la placa, delante del eje A. Su cara de apoyo es el canto delantero
+   del eslabón diagonal a 0°, desde la placa hasta 9.5 mm abajo del eje A; 6 mm de fondo; aristas R1.5.
+   Lo más fácil es tomarlo del STL ajustado del AFS1.
+4. Material de los 4 ejes: acero (8.8 o similar). Los ejes cortos de B necesitan retención (anillo o prisionero).
+
+### Dudas que siguen abiertas (no se ven en la página)
+
+- **Eje A:** con el tope junto al eje A, en acero el factor de seguridad queda en ≈1.66 de pie (65 kg) y en
+  ≈0.68 en el pico de la marcha y ≈0.36 en un tropiezo (simulación de la página, estática plana). Las piezas de
+  aluminio quedan con FS ≥ 2 en marcha. Los valores siguen en la pestaña Técnico, en Validación y en Diagramas.
+- **Ejes cortos de B:** quedan en voladizo dentro de la pared de 4 mm; conviene revisarlos en el estudio.
+- Repetir los estudios de SolidWorks con las ranuras, el tope y los ejes de acero.
+
+---
+
+## Versión fiel a los STL (commit `a93e866`)
 
 Fuente: carpeta `ESTUDIOS y STL/` (STL de cada pieza de *Ensamblaje1*, reportes PDF de 736 N y 2,200 N y capturas).
 Página: https://murphylosofer.github.io/Pierna_simulador/

@@ -52,7 +52,8 @@ Dirección: https://murphylosofer.github.io/Pierna_simulador/
 - **Única modificación:** tope de extensión escondido bajo la placa del AFS1 (`config.js → geometria.topeOculto`).
   Se quitaron el tornillo M8 y el chaflán de la versión anterior.
 - **Estudios de SolidWorks** en `config.js → solidworks` y en la pestaña SolidWorks (selector 736 N / 2,200 N / libre).
-- Choques de los STL detectados y **no corregidos**: eslabón diagonal × eje de 70 en B desde 53.3°, × placa del AFS1 desde 90.1°.
+- Choques de los STL (53.3° y 90.1°) resueltos con **recortes** activables (`geometria.recortes`): dos ranuras traseras en el
+  AFS1 y eje B partido en dos ejes cortos. Ejes de acero (`geometria.ejes.acero`). Versión fiel: commit `a93e866`.
 - Masas del reporte de SolidWorks: 386 g (+15 g del tope escondido).
 - Caso a mano de pie (con el tope escondido) coincide con el modelo en reacción, torque, fuerzas, tope y eje A.
 

@@ -151,7 +151,7 @@ export function crearEscena(contenedor) {
       const gs = pz.stl ? geometriaSTL(pz, M) : null;
       if (gs) {
         g.add(new THREE.Mesh(gs, mats.aluminio()));
-        for (const cu of pz.cuerpos.filter((c) => c.tope)) { const m = new THREE.Mesh(geometriaCuerpo(cu), mats.aluminio()); m.userData.tope = true; g.add(m); }
+        if (!pz.stlConTope) for (const cu of pz.cuerpos.filter((c) => c.tope)) { const m = new THREE.Mesh(geometriaCuerpo(cu), mats.aluminio()); m.userData.tope = true; g.add(m); }
       } else for (const cu of pz.cuerpos) g.add(new THREE.Mesh(geometriaCuerpo(cu), mats.aluminio()));
       g.userData.pieza = pz;
       marcos[pz.cuerpo].add(g);

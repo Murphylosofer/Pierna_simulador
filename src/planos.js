@@ -262,9 +262,9 @@ export function hojaPieza(pz, app, numero, total) {
     '3. Romper filos 0.3 × 45°. Acotación según ASME Y14.5-2018.',
     est ? '4. El rombo marca cotas ESTIMADAS, pendientes de las medidas reales de SolidWorks.' : `4. Cotas de los STL de SolidWorks (Ensamblaje1 · ${pz.nombreSW || ''}). Cantidad por rodilla: ${pz.cantidad}.`,
     '5. Plano de apoyo: el plano oficial para CNC se emite desde SolidWorks.',
-    ...(pz.correccion ? partir('MODIFICACIÓN: ' + pz.correccion + ' Cotas del tope: ESTIMADAS.', 95).map((l, i) => (i ? '   ' : '6. ') + l) : []),
+    ...(pz.correccion ? partir('MODIFICACIÓN: ' + pz.correccion + ' Cotas del tope y de las ranuras: ESTIMADAS.', 95).map((l, i) => (i ? '   ' : '6. ') + l) : []),
   ], 12, 167));
-  const materialPz = nombreMaterial(app);
+  const materialPz = pz.id.startsWith('perno') && CONFIG.geometria.ejes.acero ? CONFIG.geometria.ejes.materialAcero.nombre : nombreMaterial(app);
   ents.push(...marco({ nombre: `${pz.item}. ${pz.nombre}`, material: materialPz, escala, hoja: `${numero} de ${total}`, fecha: fechaHoy() }));
   return { id: pz.id, titulo: `${pz.item}. ${pz.nombre}`, ents, pieza: pz, vistasDxf: { F: v.F, S: v.S, L: v.L, corte: corte?.ents || [], caja: b } };
 }
@@ -309,9 +309,9 @@ export function hojaEnsamble(app, total) {
   ents.push(tx(ox - 40, b.y1 + 16, 'VISTA LATERAL DERECHA A 0° DE FLEXIÓN · ESCALA 3:4', 2, 'start'));
   // Lista de materiales
   const x0 = 140, y0 = 14, anchos = [10, 70, 12, 55], alto = 5.6;
-  const mat = () => nombreMaterial(app);
+  const mat = (pz) => (pz.id.startsWith('perno') && g.ejes.acero ? g.ejes.materialAcero.corto : nombreMaterial(app));
   const filas = [['N.º', 'DESCRIPCIÓN', 'CANT.', 'MATERIAL'],
-    ...unicas.map((p) => [p.item, `${p.id.startsWith('eslabon') ? 'Eslabón (diagonal y trasero)' : p.nombre}${p.correccion ? ' (con tope)' : ''}`, p.cantidad, mat(p)])];
+    ...unicas.map((p) => [p.item, `${p.id.startsWith('eslabon') ? 'Eslabón (diagonal y trasero)' : p.nombre}${p.correccion ? ' (con tope' + (g.recortes.activos ? ' y ranuras)' : ')') : p.recortado ? ' (ajuste)' : ''}`, p.cantidad, mat(p)])];
   filas.forEach((f, i) => {
     let x = x0;
     f.forEach((c, j) => { ents.push(tx(x + 1.5, y0 + i * alto + 3.9, c, 2.1, 'start', 'texto', i === 0)); x += anchos[j]; });
@@ -320,11 +320,13 @@ export function hojaEnsamble(app, total) {
   ents.push(rectE(x0, y0, x0 + 147, y0 + filas.length * alto, 'marco'));
   let x = x0; anchos.slice(0, 3).forEach((a) => { x += a; ents.push(ln(x, y0, x, y0 + filas.length * alto, 'fina')); });
   const yN = y0 + filas.length * alto + 5;
-  ents.push(tx(x0, yN, `Masa: ${M.masa ? fmt(M.masa.totalG, 0) + ' g' : 'pendiente'} con ${nombreMaterial(app)} (reporte de SolidWorks: ${CONFIG.diseno.pesoRodillaG} g + tope escondido).`, 2.1));
+  ents.push(tx(x0, yN, `Masa: ${M.masa ? fmt(M.masa.totalG, 0) + ' g' : 'pendiente'} con ${nombreMaterial(app)}${g.ejes.acero ? ' y ejes de acero' : ''} (reporte de SolidWorks: ${CONFIG.diseno.pesoRodillaG} g).`, 2.1));
   const lim = M.choques;
+  const rc = g.recortes;
   ents.push(...notas(['DIFERENCIAS CON LOS STL DE SOLIDWORKS:',
-    `a) Única modificación: tope escondido bajo la placa del AFS1 (taco de ${g.topeOculto.fondo} mm, R${g.topeOculto.radio}), apoyo de los eslabones diagonales a ${g.topeOculto.anguloGrados}°.`,
-    `b) Sin corregir: ${lim.primero ? `con los STL el eslabón diagonal choca a ${fmt(lim.flexionLibre, 1)}° (${lim.primero.par}).` : 'sin choques.'}`], x0, yN + 6));
+    `a) Tope escondido bajo la placa del AFS1 (taco de ${g.topeOculto.fondo} mm, R${g.topeOculto.radio}), apoyo de los eslabones diagonales a ${g.topeOculto.anguloGrados}°.`,
+    ...(rc.activos ? [`b) AFS1: dos ranuras traseras de ${fmt(g.afs1.ancho / 2 - g.afs1.pared - rc.ranurasAFS1.zDesde, 1)} mm junto a las paredes (paso de los eslabones diagonales).`,
+      `c) Eje B: dos ejes cortos Ø${g.ejes.diametro} × ${rc.ejeB.largo} en lugar del de ${g.ejes.largo.largo}. Ejes de acero 8.8. Flexión libre 0°–135°.`] : [])], x0, yN + 6));
   ents.push(...notas(['NOTAS:', `1. Los eslabones son la misma pieza (${g.eslabones.centros} entre centros): 2 diagonales por dentro (A–D) y 2 traseros por fuera (B–C).`, '2. Los ejes necesitan retención axial (anillos o prisioneros), no definida en SolidWorks.', '3. Medidas de los STL de SolidWorks (Ensamblaje1).', '4. Plano de apoyo: no sustituye al plano oficial.'], 12, 172));
   ents.push(...marco({ nombre: 'Ensamble de la rodilla', material: 'Ver lista de materiales', escala: '3:4', hoja: `1 de ${total}`, fecha: fechaHoy() }));
   return { id: 'ensamble', titulo: 'Ensamble y lista de materiales', ents };

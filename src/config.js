@@ -129,12 +129,30 @@ export const CONFIG = {
       trasero: { ejes: 'B–C', lado: 'exterior', cantidad: 2 },
     },
 
-    // Ejes (pernos) Ø5. Según el reporte de SolidWorks son de 6061-T6, igual que el resto del ensamble.
+    // Ejes (pernos) Ø5. En el reporte de SolidWorks son de 6061-T6. AJUSTE de presentación: se toman de acero 8.8
+    // (misma forma) porque con el tope junto al eje A el aluminio no alcanza. Con `acero: false` vuelven a 6061-T6.
     ejes: {
       diametro: 5,
       corto: { nombreSW: 'Eje Superior', largo: 55, ejes: 'A y D' }, // atraviesa paredes y eslabones diagonales
       largo: { nombreSW: 'Eslabon2', largo: 70, ejes: 'B y C' }, // atraviesa paredes y eslabones traseros (por fuera)
-      material: 'al-6061-t6', ajuste: 'H7/g6',
+      ajuste: 'H7/g6',
+      acero: true,
+      materialAcero: { nombre: 'Acero aleado clase 8.8', corto: 'Acero 8.8', fluenciaMPa: 640, ultimaMPa: 800, densidadKgM3: 7850, estimado: true },
+    },
+
+    // AJUSTES para que la rodilla llegue a 135° sin choques (recortes mínimos a los STL; ver REPORTE.md).
+    // Con `activos: false` la simulación vuelve a los STL tal cual (versión fiel, con los choques a 53.3° y 90.1°).
+    recortes: {
+      activos: true,
+      estimado: true, // propuestos por la simulación; falta hacerlos en SolidWorks
+      // 1. Dos ranuras en la parte trasera de la placa del AFS1, solo donde pasan los eslabones diagonales, pegadas a
+      //    cada pared. Se quita lo que queda detrás de la recta que va de `arriba` (cara superior) a `abajo` (fondo
+      //    de la placa), en el marco del AFS1. Ancho: de z = ±zDesde a la cara interior de la pared (±23.5).
+      ranurasAFS1: { arriba: [-47.0, 23.357], abajo: [-27.5, 14.24], zDesde: 18.0 },
+      // 2. El eje de 70 mm del punto B se cambia por dos ejes cortos que no cruzan por dentro (pared + eslabón trasero).
+      ejeB: { largo: 11.5, cantidad: 2 },
+      // STL ya recortados (generados con scripts/recortes_stl.py a partir de los originales); el AFS1 incluye el tope.
+      stl: { afs1: 'STL Rodilla ajustada/Ensamblaje1 - AFS1-1 ajustado.STL', ejeB: ['STL Rodilla ajustada/Eje corto B-1.STL', 'STL Rodilla ajustada/Eje corto B-2.STL'] },
     },
 
     // Posición de cada STL: traslación (mm) que lleva el marco propio de la pieza al marco del ensamble de SolidWorks.

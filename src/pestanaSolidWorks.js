@@ -38,14 +38,14 @@ function modeloPara(F) {
 }
 
 function resultado() {
-  const F = cargaActual(), r = solidworksPara(F), Sy = r.Sy, c = modeloPara(F);
+  const F = cargaActual(), r = solidworksPara(F), Sy = r.Sy, c = modeloPara(F), SyEje = CONFIG.geometria.ejes.acero ? CONFIG.geometria.ejes.materialAcero.fluenciaMPa : Sy;
   const fsCls = (fs) => (fs < 1 ? 'mal' : fs < CONFIG.diseno.factorSeguridad ? 'aviso' : 'ok');
   const origen = r.exacto ? `${SW} resultado directo del estudio de ${fmt(r.exacto.cargaN, 0)} N` : `${SW} escalado lineal de los dos estudios (σ = ${fmt(r.k, 4)} MPa por N)`;
   const marca = (v, txt, abajo) => `<b class="sw-marca${abajo ? ' abajo' : ''}" style="left:${Math.min(100, (v / Sy) * 100)}%"><i>${txt}</i></b>`;
   const piezas = [
     ['Eslabón diagonal (flexión con el tope)', c.esfuerzos.eslabonDiagDer.sigma],
-    ['Eje A Ø5 (flexión)', c.esfuerzos.pernoA.sigma],
-    ['Eje D Ø5 (flexión)', c.esfuerzos.pernoD.sigma],
+    ['Eje A Ø5 (flexión)', c.esfuerzos.pernoA.sigma, SyEje],
+    ['Eje D Ø5 (flexión)', c.esfuerzos.pernoD.sigma, SyEje],
     ['AFS1 (apoyo del tope / placa)', c.esfuerzos.afs1.sigma],
     ['Adaptador inferior (base)', c.esfuerzos.adaptadorInferior.sigma],
     ['Eslabón trasero', c.esfuerzos.eslabonTrasDer.sigma],
@@ -64,9 +64,9 @@ function resultado() {
       <div class="sw-barra" style="background:${degradado()}">${marca(r.sigma, `pico ${fmt(r.sigma, 0)}`)}${marca(r.entorno, `entorno ≈ ${fmt(r.entorno, 0)}`, true)}</div>
       <div class="sw-ejes"><span>0</span><span>69</span><span>138</span><span>206</span><span>275 MPa (fluencia)</span></div>
     </div>
-    <details class="sw-modelo" open><summary>Modelo de la página con la misma carga ${EST}</summary>
-      <p class="ayuda">Estática plana con el tope escondido: la rodilla apoya en el taco del AFS1, así que el eslabón diagonal se flexiona y el eje A carga ${fmt(c.FA, 0)} N (${fmt(c.FA / F, 1)} veces la carga) porque el tope está a solo ${fmt(app_.modelo.ens.tope.sRes, 1)} mm del eje. Material 6061-T6, ejes incluidos, como en SolidWorks.</p>
-      <div class="sw-piezas">${piezas.map(([n, s]) => `<div class="sw-pz"><span>${n}</span><i style="background:${colorSW(s / Sy)};width:${Math.max(2, Math.min(100, (s / Sy) * 100))}%"></i><strong class="num">${fmt(s, 0)} MPa · FS ${fmt(Math.min(Sy / s, 99), 2)}</strong></div>`).join('')}</div>
+    <details class="sw-modelo"><summary>Modelo de la página con la misma carga ${EST}</summary>
+      <p class="ayuda">Estática plana con el tope escondido: la rodilla apoya en el taco del AFS1, así que el eslabón diagonal se flexiona y el eje A carga ${fmt(c.FA, 0)} N (${fmt(c.FA / F, 1)} veces la carga) porque el tope está a solo ${fmt(app_.modelo.ens.tope.sRes, 1)} mm del eje. Piezas de 6061-T6${CONFIG.geometria.ejes.acero ? ' y ejes de acero 8.8 (ajuste; SolidWorks los tomó de 6061-T6)' : ', ejes incluidos, como en SolidWorks'}.</p>
+      <div class="sw-piezas">${piezas.map(([n, s, Sp = Sy]) => `<div class="sw-pz"><span>${n}</span><i style="background:${colorSW(s / Sp)};width:${Math.max(2, Math.min(100, (s / Sp) * 100))}%"></i><strong class="num">${fmt(s, 0)} MPa · FS ${fmt(Math.min(Sp / s, 99), 2)}</strong></div>`).join('')}</div>
     </details>`;
 }
 
@@ -99,8 +99,8 @@ function pintar() {
       <ol class="vl-pasos">
         <li>El máximo aparece en <strong>un solo punto</strong>: la arista donde el eslabón diagonal toca al AFS1 (el mismo nodo en los dos estudios). Alrededor, la captura está casi toda azul: unos ${fmt(sw.entornoMPa.marcha, 0)} MPa o menos con 2,200 N.</li>
         <li>SolidWorks pegó todas las piezas entre sí (contacto <em>"unión rígida"</em>). En la orilla de una zona pegada la pieza pasa de "soldada" a "libre" de golpe, y el programa calcula ahí un esfuerzo que sube cada vez que la malla se hace más fina. Eso se llama <strong>singularidad</strong>: es un efecto del modelo, no de la pieza.</li>
-        <li>En la rodilla real el eslabón gira en su eje y no está pegado al AFS1, así que esa orilla no existe tal cual. Con el tope escondido sí hay un apoyo ahí, pero repartido en ${fmt(app_.modelo.ens.tope.largoApoyo, 1)} mm y con aristas redondeadas.</li>
-        <li><strong>Ojo:</strong> que el pico sea una singularidad no quiere decir que la zona esté descansada. El modelo de la página, con la rodilla apoyada en el tope, da unos ${fmt(modeloPara(e2.cargaN).esfuerzos.eslabonDiagDer.sigma, 0)} MPa de flexión en el eslabón diagonal con 2,200 N, y el eje A queda muy cargado. Ver el reporte.</li>
+        <li>En la rodilla real el eslabón gira en su eje y no está pegado al AFS1, así que esa orilla no existe tal cual. Con el tope escondido el apoyo se reparte en ${fmt(app_.modelo.ens.tope.largoApoyo, 1)} mm, con aristas redondeadas.</li>
+        <li>Por eso el valor que cuenta para el diseño es el de alrededor: con 2,200 N la rodilla queda muy por debajo de los 275 MPa del 6061-T6.</li>
       </ol>
     </section>
     <section class="panel sw-panel"><h3>Cómo se hizo el estudio ${SW}</h3>

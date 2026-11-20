@@ -19,6 +19,17 @@ function estadio(L, w, n = 14) {
   for (let i = 0; i <= n; i++) { const a = Math.PI / 2 + (i / n) * Math.PI; pts.push([r * Math.cos(a), r * Math.sin(a), 0]); }
   return pts;
 }
+// Recorta un polígono convexo con el semiplano que queda a la IZQUIERDA de p→q (Sutherland–Hodgman).
+function recortar(pts, p, q) {
+  const lado = (a) => (q[0] - p[0]) * (a[1] - p[1]) - (q[1] - p[1]) * (a[0] - p[0]);
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length], la = lado(a), lb = lado(b);
+    if (la >= 0) out.push(a);
+    if (la * lb < 0) { const t = la / (la - lb); out.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]); }
+  }
+  return out;
+}
 const areaPoligono = (pts) => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0) / 2);
 // Punto de tangencia superior desde Q a la circunferencia (c, r), del lado de arriba.
 function tangenteArriba(Q, c, r) {
@@ -74,19 +85,30 @@ export function construirPiezas() {
   const xR = a.ranura.centroX, yR = pf.yRanura, xFr = pf.xFrente((yR + a.yArriba) / 2);
   const rc = M([xR, 0]);
   const zi = z0, ze = z1; // caras interior (23.5) y exterior (27.5) de las paredes
-  const ES = (n) => `Ensamblaje1 - ${n}-1.STL`;
+  const ES = (n) => `STL Rodilla/Ensamblaje1 - ${n}-1.STL`;
+  const rec = g.recortes.activos ? g.recortes : null;
+  // Placa del AFS1: con los recortes, las franjas donde pasan los eslabones diagonales pierden la parte trasera.
+  const zR = rec ? rec.ranurasAFS1.zDesde : z0;
+  // En las franjas el perfil va del fondo de la placa hasta la cara superior (sin la ranura del socket, que ahí casi no entra).
+  const perfilFranja = [[a.xAtras, a.placa.yFondoAtras], pf.placaAFS1[1], [pf.xFrente(a.yArriba), a.yArriba], [a.xAtras, a.yArriba]];
+  const placaFranja = rec ? recortar(perfilFranja, rec.ranurasAFS1.arriba, rec.ranurasAFS1.abajo) : null;
+  const cuerposPlaca = [
+    { eje: 'z', contorno: dz(pf.placaAFS1, M), a0: -zR, a1: zR, forma: { tipo: 'perfil' }, barrenos: [] },
+    { eje: 'z', contorno: dz(pf.puntaAFS1, M), a0: -zR, a1: zR, forma: { tipo: 'perfil' }, barrenos: [], punta: true },
+    ...(rec ? [-1, 1].map((sg) => ({ eje: 'z', contorno: dz(placaFranja, M), a0: sg > 0 ? zR : -z0, a1: sg > 0 ? z0 : -zR, forma: { tipo: 'perfil' }, barrenos: [], ranura: true, areaCompleta: areaPoligono(perfilFranja) + areaPoligono(pf.puntaAFS1) })) : []),
+  ];
+  const ejeCorto = (c, sg) => ({ eje: 'z', contorno: circulo(c[0], c[1], d / 2, 24), a0: sg > 0 ? z0 : -z0 - rec.ejeB.largo, a1: sg > 0 ? z0 + rec.ejeB.largo : -z0, forma: { tipo: 'circulo', d }, barrenos: [] });
 
   const piezas = [
     {
       id: 'afs1', nombre: 'AFS1 · adaptador femoral superior', nombreSW: a.nombreSW, cuerpo: 'muslo', despiece: [0, 55, 0],
-      descripcion: 'Horquilla en U invertida con ranura anular para el socket', stl: ES('AFS1'), masaSWKg: sw.afs1,
-      correccion: `Única modificación: tope de extensión escondido (taco de ${g.topeOculto.fondo} mm bajo la placa, entre paredes, aristas R${g.topeOculto.radio}).`,
+      descripcion: 'Horquilla en U invertida con ranura anular para el socket', stl: rec ? rec.stl.afs1 : ES('AFS1'), stlConTope: !!rec, masaSWKg: sw.afs1,
+      correccion: `Tope de extensión escondido (taco de ${g.topeOculto.fondo} mm bajo la placa, entre paredes, aristas R${g.topeOculto.radio}).${rec ? ' Dos ranuras traseras de 5.5 mm junto a las paredes para el paso de los eslabones diagonales.' : ''}`,
       cuerpos: [
         pared(pf.paredAFS1, M, barrenosAFS1, +1),
         pared(pf.paredAFS1, M, barrenosAFS1, -1),
-        { eje: 'z', contorno: dz(pf.placaAFS1, M), a0: -z0, a1: z0, forma: { tipo: 'perfil' }, barrenos: [] },
-        { eje: 'z', contorno: dz(pf.puntaAFS1, M), a0: -z0, a1: z0, forma: { tipo: 'perfil' }, barrenos: [], punta: true },
-        { eje: 'y', contorno: [[M([a.xAtras, 0])[0], -z0, 1], [M([xFr, 0])[0], -z0, 1], [M([xFr, 0])[0], z0, 1], [M([a.xAtras, 0])[0], z0, 1]],
+        ...cuerposPlaca,
+        { eje: 'y', contorno: [[M([a.xAtras, 0])[0], -zR, 1], [M([xFr, 0])[0], -zR, 1], [M([xFr, 0])[0], zR, 1], [M([a.xAtras, 0])[0], zR, 1]],
           a0: M([0, yR])[1], a1: M([0, a.yArriba])[1], forma: { tipo: 'rect' },
           barrenos: [{ u: rc[0], v: 0, d: a.ranura.dExt, ajuste: `ranura Ø${a.ranura.dExt}/Ø${a.ranura.dInt} × ${a.ranura.profundidad}` }] },
         { eje: 'y', contorno: circulo(rc[0], 0, a.ranura.dInt / 2, 48), a0: M([0, yR])[1], a1: M([0, a.yArriba])[1], forma: { tipo: 'circulo', d: a.ranura.dInt }, barrenos: [], isla: true },
@@ -109,19 +131,27 @@ export function construirPiezas() {
       ],
     },
     // Par diagonal (A–D), por dentro de las paredes. Es el que toca al AFS1 (y al tope escondido).
-    { id: 'eslabonDiagDer', nombre: 'Eslabón diagonal', nombreSW: el.nombreSW, cuerpo: 'c1', despiece: [0, 0, 22], stl: 'Ensamblaje1 - eslabonnnnn-4.STL', masaSWKg: sw.eslabon,
+    { id: 'eslabonDiagDer', nombre: 'Eslabón diagonal', nombreSW: el.nombreSW, cuerpo: 'c1', despiece: [0, 0, 22], stl: 'STL Rodilla/Ensamblaje1 - eslabonnnnn-4.STL', masaSWKg: sw.eslabon,
       descripcion: `Barra de ${el.centros} entre centros, ejes A–D, por dentro de las paredes`, cuerpos: [barra(mec.L1, zi - tE, zi)] },
-    { id: 'eslabonDiagIzq', igualA: 'eslabonDiagDer', nombre: 'Eslabón diagonal', cuerpo: 'c1', despiece: [0, 0, -22], stl: 'Ensamblaje1 - eslabonnnnn-3.STL', masaSWKg: sw.eslabon, cuerpos: [barra(mec.L1, -zi, -zi + tE)] },
+    { id: 'eslabonDiagIzq', igualA: 'eslabonDiagDer', nombre: 'Eslabón diagonal', cuerpo: 'c1', despiece: [0, 0, -22], stl: 'STL Rodilla/Ensamblaje1 - eslabonnnnn-3.STL', masaSWKg: sw.eslabon, cuerpos: [barra(mec.L1, -zi, -zi + tE)] },
     // Par trasero (B–C), por fuera de las paredes. Misma pieza que el diagonal.
-    { id: 'eslabonTrasDer', igualA: 'eslabonDiagDer', nombre: 'Eslabón trasero', cuerpo: 'c2', despiece: [0, 0, 40], stl: 'Ensamblaje1 - eslabonnnnn-2.STL', masaSWKg: sw.eslabon,
+    { id: 'eslabonTrasDer', igualA: 'eslabonDiagDer', nombre: 'Eslabón trasero', cuerpo: 'c2', despiece: [0, 0, 40], stl: 'STL Rodilla/Ensamblaje1 - eslabonnnnn-2.STL', masaSWKg: sw.eslabon,
       descripcion: `Misma pieza, ejes B–C, por fuera de las paredes`, cuerpos: [barra(mec.L2, ze, ze + tE)] },
-    { id: 'eslabonTrasIzq', igualA: 'eslabonDiagDer', nombre: 'Eslabón trasero', cuerpo: 'c2', despiece: [0, 0, -40], stl: 'Ensamblaje1 - eslabonnnnn-1.STL', masaSWKg: sw.eslabon, cuerpos: [barra(mec.L2, -ze - tE, -ze)] },
-    { id: 'pernoA', nombre: `Eje Ø${d} × ${ej.corto.largo}`, nombreSW: ej.corto.nombreSW, cuerpo: 'muslo', conecta: ['muslo', 'c1'], despiece: [30, 30, 0], stl: 'Ensamblaje1 - Eje Superior-2.STL', masaSWKg: sw.ejeCorto,
+    { id: 'eslabonTrasIzq', igualA: 'eslabonDiagDer', nombre: 'Eslabón trasero', cuerpo: 'c2', despiece: [0, 0, -40], stl: 'STL Rodilla/Ensamblaje1 - eslabonnnnn-1.STL', masaSWKg: sw.eslabon, cuerpos: [barra(mec.L2, -ze - tE, -ze)] },
+    { id: 'pernoA', nombre: `Eje Ø${d} × ${ej.corto.largo}`, nombreSW: ej.corto.nombreSW, cuerpo: 'muslo', conecta: ['muslo', 'c1'], despiece: [30, 30, 0], stl: 'STL Rodilla/Ensamblaje1 - Eje Superior-2.STL', masaSWKg: sw.ejeCorto,
       descripcion: 'Ejes A y D: paredes ↔ eslabones diagonales', cuerpos: [eje(mec.A0, ej.corto.largo)] },
-    { id: 'pernoD', igualA: 'pernoA', nombre: `Eje Ø${d} × ${ej.corto.largo}`, cuerpo: 'pierna', conecta: ['pierna', 'c1'], despiece: [30, -30, 0], stl: 'Ensamblaje1 - Eje Superior-1.STL', masaSWKg: sw.ejeCorto, cuerpos: [eje(mec.D, ej.corto.largo)] },
-    { id: 'pernoB', nombre: `Eje Ø${d} × ${ej.largo.largo}`, nombreSW: ej.largo.nombreSW, cuerpo: 'muslo', conecta: ['muslo', 'c2'], despiece: [-30, 30, 0], stl: 'Ensamblaje1 - Eslabon2-2.STL', masaSWKg: sw.ejeLargo,
-      descripcion: 'Ejes B y C: paredes ↔ eslabones traseros', cuerpos: [eje(mec.B0, ej.largo.largo)] },
-    { id: 'pernoC', igualA: 'pernoB', nombre: `Eje Ø${d} × ${ej.largo.largo}`, cuerpo: 'pierna', conecta: ['pierna', 'c2'], despiece: [-30, -30, 0], stl: 'Ensamblaje1 - Eslabon2-1.STL', masaSWKg: sw.ejeLargo, cuerpos: [eje(mec.C, ej.largo.largo)] },
+    { id: 'pernoD', igualA: 'pernoA', nombre: `Eje Ø${d} × ${ej.corto.largo}`, cuerpo: 'pierna', conecta: ['pierna', 'c1'], despiece: [30, -30, 0], stl: 'STL Rodilla/Ensamblaje1 - Eje Superior-1.STL', masaSWKg: sw.ejeCorto, cuerpos: [eje(mec.D, ej.corto.largo)] },
+    ...(rec ? [
+      { id: 'pernoB', nombre: `Eje corto Ø${d} × ${rec.ejeB.largo}`, cuerpo: 'muslo', conecta: ['muslo', 'c2'], despiece: [-30, 30, 20], stl: rec.stl.ejeB[0], masaSWKg: (sw.ejeLargo * rec.ejeB.largo) / ej.largo.largo, recortado: true,
+        descripcion: `Eje B, lado derecho: pared ↔ eslabón trasero (sustituye al de ${ej.largo.largo} mm)`, cuerpos: [ejeCorto(mec.B0, 1)] },
+      { id: 'pernoBIzq', igualA: 'pernoB', nombre: `Eje corto Ø${d} × ${rec.ejeB.largo}`, cuerpo: 'muslo', conecta: ['muslo', 'c2'], despiece: [-30, 30, -20], stl: rec.stl.ejeB[1], masaSWKg: (sw.ejeLargo * rec.ejeB.largo) / ej.largo.largo, cuerpos: [ejeCorto(mec.B0, -1)] },
+      { id: 'pernoC', nombre: `Eje Ø${d} × ${ej.largo.largo}`, nombreSW: ej.largo.nombreSW, cuerpo: 'pierna', conecta: ['pierna', 'c2'], despiece: [-30, -30, 0], stl: 'STL Rodilla/Ensamblaje1 - Eslabon2-1.STL', masaSWKg: sw.ejeLargo,
+        descripcion: 'Eje C: adaptador inferior ↔ eslabones traseros', cuerpos: [eje(mec.C, ej.largo.largo)] },
+    ] : [
+      { id: 'pernoB', nombre: `Eje Ø${d} × ${ej.largo.largo}`, nombreSW: ej.largo.nombreSW, cuerpo: 'muslo', conecta: ['muslo', 'c2'], despiece: [-30, 30, 0], stl: 'STL Rodilla/Ensamblaje1 - Eslabon2-2.STL', masaSWKg: sw.ejeLargo,
+        descripcion: 'Ejes B y C: paredes ↔ eslabones traseros', cuerpos: [eje(mec.B0, ej.largo.largo)] },
+      { id: 'pernoC', igualA: 'pernoB', nombre: `Eje Ø${d} × ${ej.largo.largo}`, cuerpo: 'pierna', conecta: ['pierna', 'c2'], despiece: [-30, -30, 0], stl: 'STL Rodilla/Ensamblaje1 - Eslabon2-1.STL', masaSWKg: sw.ejeLargo, cuerpos: [eje(mec.C, ej.largo.largo)] },
+    ]),
   ];
 
   // Numeración para planos y lista de materiales: una por pieza distinta.
@@ -139,19 +169,25 @@ export function construirPiezas() {
     }, 0);
     // Volumen real: el de SolidWorks (masa del reporte / densidad del 6061 del reporte) + el tope escondido.
     p.volumenTopeMm3 = vol(p.cuerpos.filter((c) => c.tope));
-    p.volumenMm3 = (p.masaSWKg / CONFIG.solidworks.propiedades.densidadKgM3) * 1e9 + p.volumenTopeMm3;
+    // Lo que quitan las ranuras: placa completa en esas franjas menos lo que queda.
+    const franjas = p.cuerpos.filter((c) => c.ranura);
+    const quitado = franjas.reduce((s_, c) => s_ + (c.areaCompleta - areaPoligono(c.contorno)) * (c.a1 - c.a0), 0);
+    p.volumenRecorteMm3 = quitado;
+    p.volumenMm3 = (p.masaSWKg / CONFIG.solidworks.propiedades.densidadKgM3) * 1e9 + p.volumenTopeMm3 - quitado;
   }
   return { piezas, ejes: [], mec, ens };
 }
 
 export function masaRodilla(materialId) {
   const { piezas } = construirPiezas();
-  const mat = CONFIG.materiales[materialId];
+  const mat = CONFIG.materiales[materialId], ej = CONFIG.geometria.ejes;
   if (!mat || !mat.densidadKgM3) return null;
   const k3 = (mat.escala || 1) ** 3;
-  const porPieza = Object.fromEntries(piezas.map((p) => [p.id, p.volumenMm3 * 1e-9 * mat.densidadKgM3 * k3 * 1000]));
-  const pernosG = piezas.filter((p) => p.id.startsWith('perno')).reduce((s, p) => s + porPieza[p.id], 0);
+  const esEje = (p) => p.id.startsWith('perno');
+  const dens = (p) => (esEje(p) && ej.acero ? ej.materialAcero.densidadKgM3 : mat.densidadKgM3 * k3);
+  const porPieza = Object.fromEntries(piezas.map((p) => [p.id, p.volumenMm3 * 1e-9 * dens(p) * 1000]));
+  const pernosG = piezas.filter(esEje).reduce((s, p) => s + porPieza[p.id], 0);
   const topeG = piezas.reduce((s, p) => s + p.volumenTopeMm3 * 1e-9 * mat.densidadKgM3 * k3 * 1000, 0);
   const totalG = Object.values(porPieza).reduce((s, v) => s + v, 0);
-  return { maquinadasG: totalG - pernosG, pernosG, topeG, totalG, porPieza, deSolidWorks: materialId === 'al-6061-t6' };
+  return { maquinadasG: totalG - pernosG, pernosG, topeG, totalG, porPieza, deSolidWorks: materialId === 'al-6061-t6' && !ej.acero };
 }

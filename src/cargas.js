@@ -103,10 +103,12 @@ export function resolverCargas(sol, externas, mat) {
     eslabonDiagDer: diagonal, eslabonDiagIzq: diagonal, eslabonTrasDer: trasero, eslabonTrasIzq: trasero,
     pernoA: perno(FA), pernoD: perno(FD), pernoB: perno(F2), pernoC: perno(F2),
   };
+  if (g.recortes.activos) esfuerzos.pernoBIzq = esfuerzos.pernoB;
 
   let fs = Infinity, critica = null;
+  const acero = ej.acero ? ej.materialAcero : null;
   for (const [id, e] of Object.entries(esfuerzos)) {
-    const Sy = mat?.fluenciaMPa;
+    const Sy = id.startsWith('perno') && acero && mat?.fluenciaMPa ? acero.fluenciaMPa : mat?.fluenciaMPa;
     e.fluencia = Sy ?? null;
     e.uso = Sy ? e.sigma / Sy : null; // 1.0 = fluencia
     e.fs = Sy && e.sigma > 1e-9 ? Sy / e.sigma : Infinity;
@@ -180,7 +182,8 @@ export function pruebaISO(mec, mat) {
       let res_ = { fuerzas: f };
       if (mat?.fluenciaMPa) {
         // Estática de prueba: ninguna pieza supera la fluencia. Última: ninguna supera la resistencia última.
-        const usoUlt = Math.max(...Object.values(rU.esfuerzos).map((e) => e.sigma / mat.ultimaMPa));
+        const ac = CONFIG.geometria.ejes.acero ? CONFIG.geometria.ejes.materialAcero : null;
+        const usoUlt = Math.max(...Object.entries(rU.esfuerzos).map(([id, e]) => e.sigma / (id.startsWith('perno') && ac ? ac.ultimaMPa : mat.ultimaMPa)));
         // Fatiga (Goodman) en las barras laterales con Kt; R ≈ 0 ⇒ σa = σm = Kt·σ/2.
         const sigF = Math.max(rC.esfuerzos.eslabonDiagDer.sigma, rC.esfuerzos.eslabonTrasDer.sigma) * iso.concentracionEsfuerzo;
         const sa = sigF / 2, sm = sigF / 2;
