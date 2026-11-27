@@ -22,7 +22,7 @@ export const NORMAS = [
     id: 'iso-10328', grupo: 'protesis', nombre: 'ISO 10328', anio: 2016, estado: 'aplicada', verificada: true,
     titulo: 'Prótesis — Ensayos estructurales de prótesis de miembro inferior — Requisitos y métodos de ensayo',
     regula: 'Define cómo se prueba la resistencia de una prótesis de pierna (incluidas las transfemorales): cargas estáticas y de fatiga según la masa del usuario, aplicadas como en el contacto de talón (condición I) y en el despegue con el antepié (condición II).',
-    aplicacion: 'La simulación aplica las fuerzas de prueba, última y cíclica de los niveles P3 (60 kg), P4 (80 kg) y P5 (100 kg) sobre la rodilla extendida y dice qué nivel pasaría con cada material. Las fuerzas se transcribieron de literatura secundaria y deben cotejarse con una copia de la norma.',
+    aplicacion: 'La simulación usa los niveles de carga P3 (60 kg), P4 (80 kg) y P5 (100 kg) para elegir el nivel que corresponde al peso del usuario. El cumplimiento de la norma se demuestra con el ensayo físico en laboratorio; las fuerzas se transcribieron de literatura secundaria y hay que cotejarlas con la norma.',
     nota: 'La edición 2016 sigue vigente. El equipo reporta una revisión en borrador (ISO/DIS 10328:2025); no se pudo confirmar su estado en esta revisión.',
   },
   {

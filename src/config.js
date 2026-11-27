@@ -306,6 +306,7 @@ export const CONFIG = {
   // ISO 10328:2016 — fuerzas de la prueba principal (N). Condición I = carga de talón, II = antepié.
   // Valores transcritos de literatura secundaria; `verificar` hasta cotejarlos con una copia de la norma.
   iso10328: {
+    mostrarPrueba: false, // resultados de la prueba simulada (pasa / no pasa); true los vuelve a mostrar
     verificar: true,
     ciclos: 3e6,
     distanciaRodillaTobillo: 420,

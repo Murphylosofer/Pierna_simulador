@@ -14,7 +14,7 @@ function tablaISO() {
   }</tbody></table></div>
   <p class="ayuda" style="margin-top:8px">Con <strong>${mat.nombre}</strong> la rodilla ${aprobado.length ? `pasaría los niveles ${aprobado.join(', ')}` : 'no pasaría ningún nivel'} en esta estimación. El número es el factor de seguridad de cada verificación (≥ 1 pasa). Para ${fmt(M.usuario.pesoKg, 0)} kg corresponde el nivel <strong>${M.nivelISO}</strong>. Fuerzas transcritas de literatura secundaria: hay que cotejarlas con la norma. ${CONFIG.iso10328.nivelesSuperiores}</p>`;
 }
-function pintarISO() { if (raiz) raiz.querySelector('#iso-tabla').innerHTML = tablaISO(); }
+function pintarISO() { const el = raiz?.querySelector('#iso-tabla'); if (el) el.innerHTML = tablaISO(); }
 
 export function montar(cont, app) {
   raiz = cont; app_ = app;
@@ -34,9 +34,9 @@ export function montar(cont, app) {
     <p class="seccion-intro">Cada norma indica qué regula, cómo se usa en esta simulación y en qué estado está. Las etiquetas que aparecen junto a los cálculos abren esta misma explicación.</p>
     <div class="nm-leyenda">${Object.entries(ESTADOS).map(([k, e]) => `<span><span class="norma-chip" data-estado="${k}">${e.nombre}</span> ${e.descripcion}</span>`).join('')}</div>
     ${GRUPOS.map((g) => `<h3 class="nm-grupo">${g.nombre}</h3><div class="nm-rejilla">${NORMAS.filter((n) => n.grupo === g.id).map(tarjeta).join('')}</div>`).join('')}
-    <h3 class="nm-grupo">Prueba ISO 10328 simulada</h3>
+    ${CONFIG.iso10328.mostrarPrueba ? `<h3 class="nm-grupo">Prueba ISO 10328 simulada</h3>
     <p class="seccion-intro">Se aplica cada fuerza de la norma sobre la rodilla extendida, a lo largo de la línea de carga de talón (I) y de antepié (II), y se compara el esfuerzo con la fluencia, la resistencia última y el límite de fatiga del material elegido.</p>
-    <div class="panel" style="padding:14px;margin-bottom:28px" id="iso-tabla"></div>
+    <div class="panel" style="padding:14px;margin-bottom:28px" id="iso-tabla"></div>` : ''}
     <h3 class="nm-grupo">Tabla de riesgos de la rodilla (ISO 14971)</h3>
     <div class="panel tabla-desliza" style="margin-bottom:28px"><table><thead><tr><th>Riesgo</th><th>Causa</th><th>Efecto</th><th>Severidad</th><th>Probabilidad</th><th>Mitigación en nuestro diseño</th></tr></thead><tbody>${
       RIESGOS.map((r) => `<tr><td><strong>${r.riesgo}</strong></td><td>${r.causa}</td><td>${r.efecto}</td><td>${r.severidad}</td><td>${r.probabilidad}</td><td>${r.mitigacion}</td></tr>`).join('')}</tbody></table></div>

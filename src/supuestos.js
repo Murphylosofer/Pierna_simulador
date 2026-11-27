@@ -75,7 +75,7 @@ function pintar() {
         <li>${v.cruceDesde == null ? 'Los pares diagonal y trasero no se cruzan en la vista lateral.' : `A partir de ${fmt(v.cruceDesde, 0)}° los pares diagonal y trasero se cruzan <em>solo en la vista lateral</em>: van en planos distintos (diagonal por dentro, trasero por fuera), así que entre ellos no se tocan.`}</li></ul></section>
       <section class="panel vl"><h3>3. Nivel ISO 10328 para el peso elegido</h3>
         <p>Para ${fmt(M.usuario.pesoKg, 0)} kg corresponde el nivel <strong>${nivel}</strong>${datos ? ` (usuarios de hasta ${datos.masaKg} kg). Fuerzas usadas, condición I / II: prueba ${datos.I.prueba} / ${datos.II.prueba} N, última ${datos.I.ultimaSup} / ${datos.II.ultimaSup} N, cíclica ${datos.I.ciclica} / ${datos.II.ciclica} N, ${fmt(iso.ciclos / 1e6, 0)} millones de ciclos.` : '. Sus fuerzas no están cargadas en la simulación.'}</p>
-        <p class="ayuda">Paciente de diseño de ${d.masaPacienteKg} kg ⇒ P4. Capacidad de diseño de ${fmt(M.capacidadDisenoKg, 1)} kg ⇒ P5. El resultado de cada nivel está en la pestaña Normas. ${app_.chipNorma('iso-10328', 'Nivel ' + nivel)}</p></section>
+        <p class="ayuda">Paciente de diseño de ${d.masaPacienteKg} kg ⇒ P4. Capacidad de diseño de ${fmt(M.capacidadDisenoKg, 1)} kg ⇒ P5. ${CONFIG.iso10328.mostrarPrueba ? 'El resultado de cada nivel está en la pestaña Normas.' : 'La norma se valida con el ensayo físico de laboratorio.'} ${app_.chipNorma('iso-10328', 'Nivel ' + nivel)}</p></section>
       <section class="panel vl"><h3>2a. Caso a mano: ${fmt(M.usuario.pesoKg, 0)} kg de pie</h3>${casoDePie(M)}</section>
       <section class="panel vl"><h3>2b. Caso a mano: ${fmt(M.usuario.pesoKg, 0)} kg en impacto</h3>${casoImpacto(M)}</section>
     </div>

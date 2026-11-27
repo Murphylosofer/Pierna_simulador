@@ -341,7 +341,7 @@ function pintarComparacion() {
   const filas = Object.keys(CONFIG.materiales).map((id) => {
     const Mi = id === sel ? app.modelo : crearModelo(e.usuario, id), ci = Mi.ciclo(escn.id), mat = Mi.mat;
     const fs = Math.min(ci.fsPiezasMin, 99);
-    return { id, mat, fs, fsTotal: ci.fsMin, masa: Mi.masa.totalG, usuarioMax: (e.usuario.pesoKg * Math.min(ci.fsMin, 99)) / d.factorSeguridad, pico: ci.reaccionMax, iso: Mi.iso().filter((f) => f.pasa).map((f) => f.nivel) };
+    return { id, mat, fs, fsTotal: ci.fsMin, masa: Mi.masa.totalG, usuarioMax: (e.usuario.pesoKg * Math.min(ci.fsMin, 99)) / d.factorSeguridad, pico: ci.reaccionMax, iso: !CONFIG.iso10328.mostrarPrueba ? [] : Mi.iso().filter((f) => f.pasa).map((f) => f.nivel) };
   });
   const S = filas.find((f) => f.id === sel);
   const barras = (titulo, clave, unidad, dec, ref) => {
@@ -350,14 +350,14 @@ function pintarComparacion() {
   };
   const eq = filas.filter((f) => f.id !== sel).map((f) => {
     const k = f.mat.fluenciaMPa / S.mat.fluenciaMPa, esc2 = ((f.mat.escala || 1) / (S.mat.escala || 1)) ** 2, carga = S.pico * k * esc2;
-    return `<tr><td><strong>${f.mat.corto}</strong></td><td class="n">${fmt(k * 100, 0)} %</td><td class="n">${fmt(f.masa / S.masa, 2)}×</td><td class="n">${fmt(carga, 0)} N (${fmt(carga / G, 1)} kg)</td><td>${f.iso.length ? f.iso.join(', ') : 'ninguno'}</td></tr>`;
+    return `<tr><td><strong>${f.mat.corto}</strong></td><td class="n">${fmt(k * 100, 0)} %</td><td class="n">${fmt(f.masa / S.masa, 2)}×</td><td class="n">${fmt(carga, 0)} N (${fmt(carga / G, 1)} kg)</td>${CONFIG.iso10328.mostrarPrueba ? `<td>${f.iso.length ? f.iso.join(', ') : 'ninguno'}</td>` : ''}</tr>`;
   }).join('');
   $('#comparacion').innerHTML = `<header><h3>Comparación de materiales · ${escn.nombre}</h3></header>
     ${barras('Factor de seguridad mínimo de las piezas', 'fs', '', 2, { v: d.factorSeguridad, t: 'el mínimo de diseño de 1.5' })}
     ${barras('Peso de la rodilla', 'masa', 'g', 0, { v: d.pesoRodillaG, t: `los ${d.pesoRodillaG} g de referencia del equipo` })}
     ${barras('Peso máximo de usuario con factor 1.5', 'usuarioMax', 'kg', 0, { v: app.modelo.capacidadDisenoKg, t: `la capacidad de diseño de ${fmt(app.modelo.capacidadDisenoKg, 1)} kg` })}
     <div class="cmp-bloque"><h4>Equivalencias respecto a ${S.mat.corto}</h4>
-    <div class="tabla-desliza"><table><thead><tr><th>Material</th><th class="n">Resistencia</th><th class="n">Peso</th><th class="n">Carga de ensayo equivalente</th><th>Niveles ISO 10328</th></tr></thead><tbody>${eq}</tbody></table></div>
+    <div class="tabla-desliza"><table><thead><tr><th>Material</th><th class="n">Resistencia</th><th class="n">Peso</th><th class="n">Carga de ensayo equivalente</th>${CONFIG.iso10328.mostrarPrueba ? '<th>Niveles ISO 10328</th>' : ''}</tr></thead><tbody>${eq}</tbody></table></div>
     <p class="ayuda"><strong>Carga de ensayo equivalente:</strong> la fuerza que produce en ese material el mismo porcentaje de su fluencia que el pico de este escenario (${fmt(S.pico, 0)} N) produce en ${S.mat.corto}. Se calcula con F × (fluencia del otro / fluencia del elegido) × escala². Sirve para probar el prototipo sin romperlo. ${CONFIG.materiales['prototipo-3d'].estimado ? 'El PLA es un supuesto (20 % de relleno, escala 1:1) hasta que el equipo confirme el plástico.' : ''} Los ejes son del mismo material que el resto, como en el reporte de SolidWorks.</p></div>`;
 }
 
