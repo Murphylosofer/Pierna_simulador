@@ -106,7 +106,7 @@ function pintarGraficas() {
     refs: [{ y: cp.retraidoMin, texto: `Retraído mínimo ${cp.retraidoMin} mm`, incluir: true }, { y: cp.retraidoMax, texto: `Retraído máximo ${cp.retraidoMax} mm`, incluir: true }, { y: E.Lmin + 30, texto: 'Carrera de 30 mm', color: 'var(--aviso)', incluir: true }],
     nota: `Eje B (AFS1) a eje D (adaptador inferior): ${fmt(E.Lmax, 1)} mm con la pierna recta, mínimo de ${fmt(E.Lmin, 1)} mm a ${fmt(E.curva.find((q) => q.L === E.Lmin).theta, 0)}° y ${fmt(E.curva[E.curva.length - 1].L, 1)} mm a 135°. Carrera usada: ${fmt(E.carrera, 1)} mm.` });
   const si = (b) => `<td style="color:var(--${b ? 'ok' : 'mal'});font-weight:600">${b ? 'Cumple' : 'No cumple'}</td>`;
-  raiz.querySelector('#dg-piston-t').innerHTML = `<div class="tabla-desliza"><table><thead><tr><th>Comprobación</th><th>Resultado</th><th>Requisito del equipo</th><th></th></tr></thead><tbody>
+  if (cp.mostrarComprobaciones) raiz.querySelector('#dg-piston-t').innerHTML = `<div class="tabla-desliza"><table><thead><tr><th>Comprobación</th><th>Resultado</th><th>Requisito del equipo</th><th></th></tr></thead><tbody>
     <tr><td>Carrera necesaria de 0° a 135°</td><td class="n">${fmt(E.carrera, 1)} mm</td><td>25 a 30 mm</td>${si(E.carrera <= 30)}</tr>
     <tr><td>Longitud retraída entre ojillos</td><td class="n">${fmt(E.Lmin, 1)} mm</td><td>${cp.retraidoMin} a ${cp.retraidoMax} mm</td>${si(E.cabeRetraido)}</tr>
     <tr><td>Diámetro exterior de la camisa</td><td class="n">${cp.diametroExterior} mm</td><td>menor que el canal de ${cp.canalCentral} mm</td>${si(E.cabeCanal)}</tr>
