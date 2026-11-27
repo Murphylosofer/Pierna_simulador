@@ -84,10 +84,10 @@ export const NORMAS = [
     aplicacion: 'Paso futuro para una fabricación formal. La simulación y los planos serían parte del expediente de diseño.',
   },
   {
-    id: 'iso-14971', grupo: 'salud', nombre: 'ISO 14971', anio: 2019, estado: 'aplicada', verificada: false,
+    id: 'iso-14971', grupo: 'salud', nombre: 'ISO 14971', anio: 2019, estado: 'referencia', verificada: false,
     titulo: 'Productos sanitarios — Aplicación de la gestión de riesgos a los productos sanitarios',
     regula: 'Establece cómo identificar los peligros de un dispositivo médico, estimar sus riesgos y controlarlos.',
-    aplicacion: 'Se aplica en la tabla de riesgos de la rodilla (más abajo): cada riesgo con su causa, su efecto y la mitigación del diseño.',
+    aplicacion: 'Referencia para un desarrollo futuro: si la rodilla llegara a usarse en pacientes, haría falta un análisis de riesgos con esta norma. En este proyecto escolar no aplica.',
   },
   {
     id: 'iso-10993-1', grupo: 'salud', nombre: 'ISO 10993-1', anio: 2025, estado: 'requerida', verificada: true,
@@ -169,8 +169,8 @@ export const RIESGOS = [
 ];
 
 export const NOTA_NORMAS =
-  'Esta simulación se basa en estas normas para el análisis y la explicación, pero no es una certificación. ' +
-  'Para usarse en pacientes, la prótesis necesita pruebas físicas bajo ISO 10328 y registro sanitario ante COFEPRIS.';
+  'Proyecto escolar representativo: esta simulación se basa en estas normas para el análisis y la explicación, ' +
+  'pero no es una certificación ni un dispositivo médico, y no se usará en pacientes.';
 
 export const norma = (id) => NORMAS.find((n) => n.id === id);
 export const etiquetaNorma = (n) => `${n.nombre}${n.anio && !/\d{4}/.test(n.nombre) ? ':' + n.anio : ''}`;

@@ -37,9 +37,9 @@ export function montar(cont, app) {
     ${CONFIG.iso10328.mostrarPrueba ? `<h3 class="nm-grupo">Prueba ISO 10328 simulada</h3>
     <p class="seccion-intro">Se aplica cada fuerza de la norma sobre la rodilla extendida, a lo largo de la línea de carga de talón (I) y de antepié (II), y se compara el esfuerzo con la fluencia, la resistencia última y el límite de fatiga del material elegido.</p>
     <div class="panel" style="padding:14px;margin-bottom:28px" id="iso-tabla"></div>` : ''}
-    <h3 class="nm-grupo">Tabla de riesgos de la rodilla (ISO 14971)</h3>
+    ${CONFIG.mostrarRiesgos ? `    <h3 class="nm-grupo">Tabla de riesgos de la rodilla (ISO 14971)</h3>
     <div class="panel tabla-desliza" style="margin-bottom:28px"><table><thead><tr><th>Riesgo</th><th>Causa</th><th>Efecto</th><th>Severidad</th><th>Probabilidad</th><th>Mitigación en nuestro diseño</th></tr></thead><tbody>${
-      RIESGOS.map((r) => `<tr><td><strong>${r.riesgo}</strong></td><td>${r.causa}</td><td>${r.efecto}</td><td>${r.severidad}</td><td>${r.probabilidad}</td><td>${r.mitigacion}</td></tr>`).join('')}</tbody></table></div>
+      RIESGOS.map((r) => `<tr><td><strong>${r.riesgo}</strong></td><td>${r.causa}</td><td>${r.efecto}</td><td>${r.severidad}</td><td>${r.probabilidad}</td><td>${r.mitigacion}</td></tr>`).join('')}</tbody></table></div>` : ''}
     <p class="nm-nota"><strong>${NOTA_NORMAS}</strong></p>`;
   pintarISO();
 }
