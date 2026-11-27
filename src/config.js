@@ -222,6 +222,7 @@ export const CONFIG = {
 
   // Pistón neumático propuesto (especificaciones_del_pistón.md). Se sigue estudiando entre B (muslo) y D (pierna).
   piston: {
+    mostrar: false, // oculto en la página: con la rodilla real no cumple lo pedido (true lo vuelve a mostrar)
     estimado: true,
     tipo: 'Minicilindro neumático de doble efecto, ISO 6432',
     diametroEmbolo: 16,

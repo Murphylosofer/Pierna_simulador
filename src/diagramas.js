@@ -99,6 +99,7 @@ function tka(inst) {
 function pintarGraficas() {
   const M = app_.modelo, escn = escenario(app_.estado.escId), c = M.ciclo(escn.id), T = escn.duracion(M.ctx);
   gTorque?.destruir(); gFuerza?.destruir(); gPiston?.destruir();
+  if (CONFIG.piston.mostrar) {
   const E = M.piston, cp = CONFIG.piston;
   gPiston = grafica(raiz.querySelector('#dg-piston-g'), { titulo: 'Longitud del pistón contra flexión', unidad: 'mm entre ojillos', ejeX: '° de flexión', xMin: 0, xMax: 135, yMin: 60, yMax: 120, decimales: 1,
     series: [{ nombre: 'Longitud entre ojillos', color: 'var(--serie-sana)', puntos: E.curva.map((c) => [c.theta, c.L]) }],
@@ -115,6 +116,7 @@ function pintarGraficas() {
     <tr><td>Par máximo sobre la rodilla</td><td class="n">${fmt(E.parMaxNm, 1)} N·m</td><td>F × brazo respecto al CIR</td><td></td></tr>
   </tbody></table></div>
   <div class="aviso cuidado" style="margin-top:10px"><span><strong>Con la rodilla real el pistón no cabe en lo que pedía el documento.</strong> Montado entre el eje B del AFS1 y el eje D del adaptador inferior, necesita ${fmt(E.carrera, 1)} mm de carrera y queda en ${fmt(E.Lmin, 1)}–${fmt(E.Lmax, 1)} mm entre ojillos: sirve un minicilindro Ø16 de 40 mm de carrera, no el de 25–30. Además la longitud no cambia en un solo sentido (baja hasta ${fmt(E.curva.find((q) => q.L === E.Lmin).theta, 0)}° y luego sube), así que un amortiguador simple frenaría en un tramo y empujaría en el otro. Es un estudio en el plano lateral; el pistón todavía no se dibuja en 3D.</span></div>`;
+  }
   gTorque = grafica(raiz.querySelector('#dg-torque'), { titulo: 'Torque contra ángulo de flexión', unidad: 'N·m', ejeX: '° de flexión', xMin: 0, xMax: 135,
     series: [{ nombre: 'Torque externo en la rodilla', color: 'var(--serie-protesis)', puntos: c.muestras.map((m) => [m.theta, m.torque]) }], parametrica: true,
     nota: `Escenario: ${escn.nombre}. La curva recorre el movimiento en orden; el punto marca el instante actual. A 0° se apilan los valores del apoyo.` });
@@ -131,7 +133,7 @@ export function actualizar(app) {
   raiz.querySelector('#dg-cin').innerHTML = cinematico(inst);
   raiz.querySelector('#dg-dcl').innerHTML = cuerpoLibre(inst);
   raiz.querySelector('#dg-tka').innerHTML = tka(inst);
-  raiz.querySelector('#dg-piston').innerHTML = diagramaPiston(app.modelo.mec, inst.theta);
+  if (CONFIG.piston.mostrar) raiz.querySelector('#dg-piston').innerHTML = diagramaPiston(app.modelo.mec, inst.theta);
   gPiston?.cursor(inst.theta);
   const escn = escenario(app.estado.escId), T = escn.duracion(app.modelo.ctx);
   gTorque?.cursor(inst.t * 100); gFuerza?.cursor(inst.t * T);
@@ -160,8 +162,8 @@ export function montar(cont, app) {
       <div class="panel tarjeta"><h3>Zona de estabilidad y alineación de banco</h3><p class="ayuda">Línea azul discontinua: trocánter–rodilla–tobillo (TKA). La rodilla queda ${CONFIG.diseno.desplazamientoPosteriorEjeMm} mm detrás de ella.</p><div id="dg-tka"></div><div class="chips">${app.chipNorma('radcliffe')}${app.chipNorma('iso-10328')}</div></div>
       <div class="panel tarjeta ancho"><h3>Diagramas de cuerpo libre</h3><p class="ayuda">Fuerzas sobre cada cuerpo en este instante. Azul: reacciones en los pernos. Guinda: carga externa. Las flechas indican dirección; la magnitud está en el rótulo.</p><div class="dcl" id="dg-dcl"></div></div>
       <div id="dg-torque"></div><div id="dg-fuerza"></div>
-      <div class="panel tarjeta ancho"><h3>Pistón neumático (propuesta del equipo)</h3><p class="ayuda">Minicilindro de doble efecto Ø16 entre el eje B del AFS1 y el eje D del adaptador inferior, dentro del canal de 47 mm entre los eslabones interiores.</p>
-        <div class="dg" style="margin-top:10px"><div id="dg-piston"></div><div id="dg-piston-g"></div></div><div id="dg-piston-t" style="margin-top:12px"></div></div>
+      ${CONFIG.piston.mostrar ? `<div class="panel tarjeta ancho"><h3>Pistón neumático (propuesta del equipo)</h3><p class="ayuda">Minicilindro de doble efecto Ø16 entre el eje B del AFS1 y el eje D del adaptador inferior, dentro del canal de 47 mm entre los eslabones interiores.</p>
+        <div class="dg" style="margin-top:10px"><div id="dg-piston"></div><div id="dg-piston-g"></div></div><div id="dg-piston-t" style="margin-top:12px"></div></div>` : ''}
     </div>`;
   cont.querySelector('#dg-play').addEventListener('click', () => { app.estado.reproduciendo = !app.estado.reproduciendo; actualizar(app); });
   pintarGraficas();
